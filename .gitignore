@@ -27,3 +27,11 @@ setup.log
 
 # Local OPAM switch
 _opam/
+
+# PDF
+*.pdf
+src/lexer.ml
+src/parser.ml
+src/parser.mli
+src/parser.output
+src/f
