@@ -8,8 +8,7 @@ open Support.Pervasive
 exception NoRuleApplies
 
 let rec isnumericval ctx t = match t with
-    TmZero(_) -> true
-  | TmSucc(_,t1) -> isnumericval ctx t1
+    TmInt _ -> true
   | _ -> false
 
 let rec isval ctx t = match t with
@@ -76,20 +75,8 @@ let rec eval1 ctx t = match t with
   | TmIf(fi,t1,t2,t3) ->
       let t1' = eval1 ctx t1 in
       TmIf(fi, t1', t2, t3)
-  | TmSucc(fi,t1) ->
-      let t1' = eval1 ctx t1 in
-      TmSucc(fi, t1')
-  | TmPred(_,TmZero(_)) ->
-      TmZero(dummyinfo)
-  | TmPred(_,TmSucc(_,nv1)) when (isnumericval ctx nv1) ->
-      nv1
-  | TmPred(fi,t1) ->
-      let t1' = eval1 ctx t1 in
-      TmPred(fi, t1')
-  | TmIsZero(_,TmZero(_)) ->
-      TmTrue(dummyinfo)
-  | TmIsZero(_,TmSucc(_,nv1)) when (isnumericval ctx nv1) ->
-      TmFalse(dummyinfo)
+  | TmIsZero(_,TmInt(_,v1)) ->
+      if v1==0 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
   | TmIsZero(fi,t1) ->
       let t1' = eval1 ctx t1 in
       TmIsZero(fi, t1')
@@ -117,6 +104,32 @@ let rec eval1 ctx t = match t with
   | TmFix(fi,t1) ->
       let t1' = eval1 ctx t1
       in TmFix(fi,t1')
+  | TmPlus(fi,TmFloat(_,f1),TmFloat(_,f2)) ->
+      TmFloat(fi, f1 +. f2)
+  | TmPlus(fi,TmInt(_,i1),TmInt(_,i2)) ->
+      TmInt(fi,i1 + i2)
+  | TmPlus(fi,(TmFloat(_,f1) as t1),t2) ->
+      let t2' = eval1 ctx t2 in
+      TmPlus(fi,t1,t2') 
+  | TmPlus(fi,(TmInt(_,i1) as t1),t2) ->
+      let t2' = eval1 ctx t2 in
+      TmPlus(fi,t1,t2') 
+  | TmPlus(fi,t1,t2) ->
+      let t1' = eval1 ctx t1 in
+      TmPlus(fi,t1',t2) 
+  | TmGt(fi,TmFloat(_,f1),TmFloat(_,f2)) ->
+      if f1>f2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
+  | TmGt(fi,TmInt(_,i1),TmInt(_,i2)) ->
+    if i1>i2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
+  | TmGt(fi,(TmFloat(_,f1) as t1),t2) ->
+      let t2' = eval1 ctx t2 in
+      TmPlus(fi,t1,t2') 
+  | TmGt(fi,(TmInt(_,i1) as t1),t2) ->
+      let t2' = eval1 ctx t2 in
+      TmPlus(fi,t1,t2') 
+  | TmGt(fi,t1,t2) ->
+      let t1' = eval1 ctx t1 in
+      TmPlus(fi,t1',t2) 
   | _ -> 
       raise NoRuleApplies
 
@@ -166,7 +179,7 @@ let rec tyeqv ctx tyS tyT =
     (TyArr(tyS1,tyS2),TyArr(tyT1,tyT2)) ->
        (tyeqv ctx tyS1 tyT1) && (tyeqv ctx tyS2 tyT2)
   | (TyBool,TyBool) -> true
-  | (TyNat,TyNat) -> true
+  | (TyInt,TyInt) -> true
   | (TyRecord(fields1),TyRecord(fields2)) -> 
        List.length fields1 = List.length fields2
        &&                                         
@@ -360,16 +373,10 @@ let rec typeof ctx t =
       if subtype ctx (typeof ctx t1) TyBool then
         join ctx (typeof ctx t2) (typeof ctx t3)
       else error fi "guard of conditional not a boolean"
-  | TmZero(fi) ->
-      TyNat
-  | TmSucc(fi,t1) ->
-      if subtype ctx (typeof ctx t1) TyNat then TyNat
-      else error fi "argument of succ is not a number"
-  | TmPred(fi,t1) ->
-      if subtype ctx (typeof ctx t1) TyNat then TyNat
-      else error fi "argument of pred is not a number"
+  | TmInt _ ->
+      TyInt
   | TmIsZero(fi,t1) ->
-      if subtype ctx (typeof ctx t1) TyNat then TyBool
+      if subtype ctx (typeof ctx t1) TyInt then TyBool
       else error fi "argument of iszero is not a number"
   | TmUnit(fi) -> TyUnit
   | TmFloat _ -> TyFloat
@@ -377,6 +384,18 @@ let rec typeof ctx t =
       if subtype ctx (typeof ctx t1) TyFloat
       && subtype ctx (typeof ctx t2) TyFloat then TyFloat
       else error fi "argument of timesfloat is not a number"
+  | TmPlus(fi,t1,t2) ->
+      if subtype ctx (typeof ctx t1) TyFloat
+      && subtype ctx (typeof ctx t2) TyFloat then TyFloat
+      else if subtype ctx (typeof ctx t1) TyInt
+        && subtype ctx (typeof ctx t2) TyInt then TyInt
+      else error fi "argument of plus is not a number"
+  | TmGt(fi,t1,t2) ->
+      if subtype ctx (typeof ctx t1) TyFloat
+      && subtype ctx (typeof ctx t2) TyFloat then TyBool
+      else if subtype ctx (typeof ctx t1) TyInt
+        && subtype ctx (typeof ctx t2) TyInt then TyBool
+      else error fi "argument of gt is not a number"
   | TmLet(fi,x,t1,t2) ->
      let tyT1 = typeof ctx t1 in
      let ctx' = addbinding ctx x (VarBind(tyT1)) in         

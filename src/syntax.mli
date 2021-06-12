@@ -4,6 +4,16 @@ open Support.Pervasive
 open Support.Error
 
 (* Data type definitions *)
+
+type operator =
+    Plus
+  | Minus
+  | Times
+  | Divide
+  | LT
+  | GT
+  | EQ
+
 type ty =
     TyTop
   | TyVar of int * int
@@ -13,7 +23,7 @@ type ty =
   | TyArr of ty * ty
   | TyRecord of (string * ty) list
   | TyBool
-  | TyNat
+  | TyInt
   | TyUnit
   | TyId of string
   | TyFloat
@@ -33,9 +43,7 @@ type term =
   | TmTrue of info
   | TmFalse of info
   | TmIf of info * term * term * term
-  | TmZero of info
-  | TmSucc of info * term
-  | TmPred of info * term
+  | TmInt of info * int
   | TmIsZero of info * term
   | TmUnit of info
   | TmFloat of info * float
@@ -43,6 +51,9 @@ type term =
   | TmLet of info * string * term * term
   | TmInert of info * ty
   | TmFix of info * term
+  | TmBinary of info * operator * term * term
+  | TmPlus of info * term * term
+  | TmGt of info * term * term
 
 type binding =
     NameBind 

@@ -5,6 +5,15 @@ open Support.Pervasive
 (* ---------------------------------------------------------------------- *)
 (* Datatypes *)
 
+type operator =
+    Plus
+  | Minus
+  | Times
+  | Divide
+  | LT
+  | GT
+  | EQ
+
 type ty =
     TyTop
   | TyVar of int * int
@@ -14,7 +23,7 @@ type ty =
   | TyArr of ty * ty
   | TyRecord of (string * ty) list
   | TyBool
-  | TyNat
+  | TyInt
   | TyUnit
   | TyId of string
   | TyFloat
@@ -34,9 +43,7 @@ type term =
   | TmTrue of info
   | TmFalse of info
   | TmIf of info * term * term * term
-  | TmZero of info
-  | TmSucc of info * term
-  | TmPred of info * term
+  | TmInt of info * int
   | TmIsZero of info * term
   | TmUnit of info
   | TmFloat of info * float
@@ -44,6 +51,9 @@ type term =
   | TmLet of info * string * term * term
   | TmInert of info * ty
   | TmFix of info * term
+  | TmBinary of info * operator * term * term
+  | TmPlus of info * term * term
+  | TmGt of info * term * term
 
 type binding =
     NameBind 
@@ -111,7 +121,7 @@ let tymap onvar c tyT =
   | TyArr(tyT1,tyT2) -> TyArr(walk c tyT1,walk c tyT2)
   | TyRecord(fieldtys) -> TyRecord(List.map (fun (li,tyTi) -> (li, walk c tyTi)) fieldtys)
   | TyBool -> TyBool
-  | TyNat -> TyNat
+  | TyInt -> TyInt
   | TyId(b) as tyT -> tyT
   | TyUnit -> TyUnit
   | TyFloat -> TyFloat
@@ -138,9 +148,7 @@ let tmmap onvar ontype c t =
   | TmTrue(fi) as t -> t
   | TmFalse(fi) as t -> t
   | TmIf(fi,t1,t2,t3) -> TmIf(fi,walk c t1,walk c t2,walk c t3)
-  | TmZero(fi)      -> TmZero(fi)
-  | TmSucc(fi,t1)   -> TmSucc(fi, walk c t1)
-  | TmPred(fi,t1)   -> TmPred(fi, walk c t1)
+  | TmInt _ as t -> t
   | TmIsZero(fi,t1) -> TmIsZero(fi, walk c t1)
   | TmLet(fi,x,t1,t2) -> TmLet(fi,x,walk c t1,walk (c+1) t2)
   | TmUnit(fi) as t -> t
@@ -148,6 +156,8 @@ let tmmap onvar ontype c t =
   | TmFloat _ as t -> t
   | TmTimesfloat(fi,t1,t2) -> TmTimesfloat(fi, walk c t1, walk c t2)
   | TmFix(fi,t1) -> TmFix(fi,walk c t1)
+  | TmPlus(fi,t1,t2) -> TmPlus(fi, walk c t1, walk c t2)
+  | TmGt(fi,t1,t2) -> TmGt(fi, walk c t1, walk c t2)
   in walk c t
 
 let typeShiftAbove d c tyT =
@@ -243,9 +253,7 @@ let tmInfo t = match t with
   | TmTrue(fi) -> fi
   | TmFalse(fi) -> fi
   | TmIf(fi,_,_,_) -> fi
-  | TmZero(fi) -> fi
-  | TmSucc(fi,_) -> fi
-  | TmPred(fi,_) -> fi
+  | TmInt(fi,_) -> fi
   | TmIsZero(fi,_) -> fi
   | TmUnit(fi) -> fi
   | TmFloat(fi,_) -> fi
@@ -253,6 +261,8 @@ let tmInfo t = match t with
   | TmLet(fi,_,_,_) -> fi
   | TmInert(fi,_) -> fi
   | TmFix(fi,_) -> fi 
+  | TmPlus(fi,_,_) -> fi
+  | TmGt(fi,_,_) -> fi
 
 (* ---------------------------------------------------------------------- *)
 (* Printing *)
@@ -337,7 +347,7 @@ and printty_AType outer ctx tyT = match tyT with
               p (i+1) rest
         in pr "{"; open_hovbox 0; p 1 fields; pr "}"; cbox()
   | TyBool -> pr "Bool"
-  | TyNat -> pr "Nat"
+  | TyInt -> pr "Int"
   | TyUnit -> pr "Unit"
   | TyId(b) -> pr b
   | TyFloat -> pr "Float"
@@ -405,12 +415,16 @@ and printtm_AppTerm outer ctx t = match t with
       print_space();
       printtm_ATerm false ctx t2;
       cbox()
-  | TmPred(_,t1) ->
-       pr "pred "; printtm_ATerm false ctx t1
   | TmIsZero(_,t1) ->
        pr "iszero "; printtm_ATerm false ctx t1
   | TmTimesfloat(_,t1,t2) ->
        pr "timesfloat "; printtm_ATerm false ctx t2; 
+       pr " "; printtm_ATerm false ctx t2
+  | TmPlus(_,t1,t2) ->
+       pr "plus "; printtm_ATerm false ctx t2; 
+       pr " "; printtm_ATerm false ctx t2
+  | TmGt(_,t1,t2) ->
+       pr "gt "; printtm_ATerm false ctx t2; 
        pr " "; printtm_ATerm false ctx t2
   | t -> printtm_PathTerm outer ctx t
 
@@ -458,14 +472,8 @@ and printtm_ATerm outer ctx t = match t with
        in pr "{"; open_hovbox 0; p 1 fields; pr "}"; cbox()
   | TmTrue(_) -> pr "true"
   | TmFalse(_) -> pr "false"
-  | TmZero(fi) ->
-       pr "0"
-  | TmSucc(_,t1) ->
-     let rec f n t = match t with
-         TmZero(_) -> pr (string_of_int n)
-       | TmSucc(_,s) -> f (n+1) s
-       | _ -> (pr "(succ "; printtm_ATerm false ctx t1; pr ")")
-     in f 1 t1
+  | TmInt(fi,i) ->
+       pr (string_of_int i)
   | TmUnit(_) -> pr "unit"
   | TmFloat(_,s) -> pr (string_of_float s)
   | TmInert(_,tyT) -> pr "inert["; printty_Type false ctx tyT; pr "]"

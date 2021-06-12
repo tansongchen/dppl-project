@@ -28,10 +28,8 @@ let reservedWords = [
   ("true", fun i -> Parser.TRUE i);
   ("false", fun i -> Parser.FALSE i);
   ("Bool", fun i -> Parser.BOOL i);
-  ("succ", fun i -> Parser.SUCC i);
-  ("pred", fun i -> Parser.PRED i);
+  ("Int", fun i -> Parser.UINT i);
   ("iszero", fun i -> Parser.ISZERO i);
-  ("Nat", fun i -> Parser.NAT i);
   ("unit", fun i -> Parser.UNIT i);
   ("Unit", fun i -> Parser.UUNIT i);
   ("timesfloat", fun i -> Parser.TIMESFLOAT i);
@@ -39,6 +37,8 @@ let reservedWords = [
   ("inert", fun i -> Parser.INERT i);
   ("fix", fun i -> Parser.FIX i);
   ("letrec", fun i -> Parser.LETREC i);
+  ("plus", fun i -> Parser.PLUS i);
+  ("gt", fun i -> Parser.GT i);
   
   (* Symbols *)
   ("_", fun i -> Parser.USCORE i);

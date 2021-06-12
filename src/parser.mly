@@ -39,10 +39,8 @@ open Syntax
 %token <Support.Error.info> TRUE
 %token <Support.Error.info> FALSE
 %token <Support.Error.info> BOOL
-%token <Support.Error.info> SUCC
-%token <Support.Error.info> PRED
+%token <Support.Error.info> UINT
 %token <Support.Error.info> ISZERO
-%token <Support.Error.info> NAT
 %token <Support.Error.info> UNIT
 %token <Support.Error.info> UUNIT
 %token <Support.Error.info> TIMESFLOAT
@@ -50,6 +48,8 @@ open Syntax
 %token <Support.Error.info> INERT
 %token <Support.Error.info> FIX
 %token <Support.Error.info> LETREC
+%token <Support.Error.info> PLUS
+%token <Support.Error.info> GT
 
 /* Identifier and constant value tokens */
 %token <string Support.Error.withinfo> UCID  /* uppercase-initial */
@@ -185,8 +185,8 @@ AType :
           TyRecord($2 ctx 1) }
   | BOOL
       { fun ctx -> TyBool }
-  | NAT
-      { fun ctx -> TyNat }
+  | UINT
+      { fun ctx -> TyInt }
   | UUNIT
       { fun ctx -> TyUnit }
   | UFLOAT
@@ -265,14 +265,14 @@ AppTerm :
           let e1 = $1 ctx in
           let e2 = $2 ctx in
           TmApp(tmInfo e1,e1,e2) }
-  | SUCC PathTerm
-      { fun ctx -> TmSucc($1, $2 ctx) }
-  | PRED PathTerm
-      { fun ctx -> TmPred($1, $2 ctx) }
   | ISZERO PathTerm
       { fun ctx -> TmIsZero($1, $2 ctx) }
   | TIMESFLOAT PathTerm PathTerm
       { fun ctx -> TmTimesfloat($1, $2 ctx, $3 ctx) }
+  | PLUS PathTerm PathTerm
+      { fun ctx -> TmPlus($1, $2 ctx, $3 ctx) }
+  | GT PathTerm PathTerm
+      { fun ctx -> TmGt($1, $2 ctx, $3 ctx) }
   | FIX PathTerm
       { fun ctx ->
           TmFix($1, $2 ctx) }
@@ -332,11 +332,7 @@ ATerm :
   | FALSE
       { fun ctx -> TmFalse($1) }
   | INTV
-      { fun ctx ->
-          let rec f n = match n with
-              0 -> TmZero($1.i)
-            | n -> TmSucc($1.i, f (n-1))
-          in f $1.v }
+      { fun ctx -> TmInt($1.i, $1.v) }
   | UNIT
       { fun ctx -> TmUnit($1) }
   | FLOATV
