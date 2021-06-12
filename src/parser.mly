@@ -96,6 +96,9 @@ open Syntax
 %token <Support.Error.info> TRIANGLE
 %token <Support.Error.info> USCORE
 %token <Support.Error.info> VBAR
+%token <Support.Error.info> MINUS
+
+
 
 /* ---------------------------------------------------------------------- */
 /* The starting production of the generated parser is the syntactic class
@@ -252,10 +255,17 @@ Term :
           TmLet($1, $2.v, TmFix($1, TmAbs($1, $2.v, $4 ctx, $6 ctx1)),
                 $8 ctx1) }
 
+Operator :
+    PLUS    { fun ctx -> Plus($1) }
+  | MINUS   { fun ctx -> Minus($1) }
+  | STAR    { fun ctx -> Times($1) }
+  | SLASH   { fun ctx -> Divide($1) }
+  | GT      { fun ctx -> GT($1) }
+  | EQ      { fun ctx -> EQ($1) }
+  | LT      { fun ctx -> LT($1) }
+
 AppTerm :
-    PathTerm
-      { $1 }
-  | AppTerm LSQUARE Type RSQUARE
+    AppTerm LSQUARE Type RSQUARE
       { fun ctx ->
           let t1 = $1 ctx in
           let t2 = $3 ctx in
@@ -273,9 +283,15 @@ AppTerm :
       { fun ctx -> TmPlus($1, $2 ctx, $3 ctx) }
   | GT PathTerm PathTerm
       { fun ctx -> TmGt($1, $2 ctx, $3 ctx) }
+  | PathTerm Operator PathTerm
+      { fun ctx -> 
+            let t1 = $1 ctx in
+            TmBinary(tmInfo t1, $2 ctx, t1, $3 ctx) }
   | FIX PathTerm
       { fun ctx ->
           TmFix($1, $2 ctx) }
+  | PathTerm
+      { $1 }
 
 PathTerm :
     PathTerm DOT LCID

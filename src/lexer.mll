@@ -71,6 +71,8 @@ let reservedWords = [
   ("|}", fun i -> Parser.BARRCURLY i);
   ("|>", fun i -> Parser.BARGT i);
   ("|]", fun i -> Parser.BARRSQUARE i);
+  ("+", fun i -> Parser.PLUS i);
+  ("-", fun i -> Parser.MINUS i);
 
   (* Special compound symbols: *)
   (":=", fun i -> Parser.COLONEQ i);
@@ -160,10 +162,10 @@ rule main = parse
 | "# line " ['0'-'9']+
     { lineno := extractLineno (text lexbuf) 7 - 1; getFile lexbuf }
 
-| ['0'-'9']+
+| '-'?['0'-'9']+
     { Parser.INTV{i=info lexbuf; v=int_of_string (text lexbuf)} }
 
-| ['0'-'9']+ '.' ['0'-'9']+
+| '-'?['0'-'9']+ '.' ['0'-'9']+
     { Parser.FLOATV{i=info lexbuf; v=float_of_string (text lexbuf)} }
 
 | ['A'-'Z' 'a'-'z' '_']

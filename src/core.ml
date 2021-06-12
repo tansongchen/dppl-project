@@ -129,7 +129,34 @@ let rec eval1 ctx t = match t with
       TmPlus(fi,t1,t2') 
   | TmGt(fi,t1,t2) ->
       let t1' = eval1 ctx t1 in
-      TmPlus(fi,t1',t2) 
+      TmPlus(fi,t1',t2)
+  | TmBinary (fi,op,TmFloat(_,f1),TmFloat(_,f2)) -> ( match op with
+        Plus(_) -> TmFloat(fi, f1 +. f2)
+      | Minus(_) -> TmFloat(fi, f1 -. f2)
+      | Times(_) -> TmFloat(fi, f1 *. f2)
+      | Divide(_) -> TmFloat(fi, f1 /. f2)
+      | GT(_) -> if f1>f2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
+      | EQ(_) -> if f1=f2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
+      | LT(_) -> if f1<f2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
+  )
+  | TmBinary (fi,op,TmInt(_,i1),TmInt(_,i2)) -> ( match op with
+        Plus(_) -> TmInt(fi,i1 + i2)
+      | Minus(_) -> TmInt(fi,i1 - i2)
+      | Times(_) -> TmInt(fi,i1 * i2)
+      | Divide(_) -> TmInt(fi,i1 / i2)
+      | GT(_) -> if i1>i2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
+      | EQ(_) -> if i1=i2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
+      | LT(_) -> if i1<i2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
+  )
+  | TmBinary(fi,op,(TmFloat(_,i1) as t1),t2) ->
+      let t2' = eval1 ctx t2 in
+      TmBinary(fi,op,t1,t2')
+  | TmBinary(fi,op,(TmInt(_,i1) as t1),t2) ->
+      let t2' = eval1 ctx t2 in
+      TmBinary(fi,op,t1,t2')
+  | TmBinary(fi,op,t1,t2) ->
+      let t1' = eval1 ctx t1 in
+      TmBinary(fi,op,t1',t2)
   | _ -> 
       raise NoRuleApplies
 
@@ -396,6 +423,20 @@ let rec typeof ctx t =
       else if subtype ctx (typeof ctx t1) TyInt
         && subtype ctx (typeof ctx t2) TyInt then TyBool
       else error fi "argument of gt is not a number"
+  | TmBinary(fi,op,t1,t2) -> ( match op with
+      Plus(_)|Minus(_)|Times(_)|Divide(_) ->
+        if subtype ctx (typeof ctx t1) TyFloat
+          && subtype ctx (typeof ctx t2) TyFloat then TyFloat
+          else if subtype ctx (typeof ctx t1) TyInt
+            && subtype ctx (typeof ctx t2) TyInt then TyInt
+          else error fi "argument of plus/minus/times/divide is not a number"
+    | GT(_)|EQ(_)|LT(_) ->
+        if subtype ctx (typeof ctx t1) TyFloat
+          && subtype ctx (typeof ctx t2) TyFloat then TyBool
+          else if subtype ctx (typeof ctx t1) TyInt
+            && subtype ctx (typeof ctx t2) TyInt then TyBool
+          else error fi "argument of gt/eq/lt is not a number"
+  )
   | TmLet(fi,x,t1,t2) ->
      let tyT1 = typeof ctx t1 in
      let ctx' = addbinding ctx x (VarBind(tyT1)) in         

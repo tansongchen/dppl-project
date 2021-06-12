@@ -6,13 +6,13 @@ open Support.Pervasive
 (* Datatypes *)
 
 type operator =
-    Plus
-  | Minus
-  | Times
-  | Divide
-  | LT
-  | GT
-  | EQ
+    Plus of info
+  | Minus of info
+  | Times of info
+  | Divide of info
+  | LT of info
+  | GT of info
+  | EQ of info
 
 type ty =
     TyTop
@@ -158,6 +158,7 @@ let tmmap onvar ontype c t =
   | TmFix(fi,t1) -> TmFix(fi,walk c t1)
   | TmPlus(fi,t1,t2) -> TmPlus(fi, walk c t1, walk c t2)
   | TmGt(fi,t1,t2) -> TmGt(fi, walk c t1, walk c t2)
+  | TmBinary(fi,op,t1,t2) -> TmBinary(fi, op, walk c t1, walk c t2)
   in walk c t
 
 let typeShiftAbove d c tyT =
@@ -263,6 +264,7 @@ let tmInfo t = match t with
   | TmFix(fi,_) -> fi 
   | TmPlus(fi,_,_) -> fi
   | TmGt(fi,_,_) -> fi
+  | TmBinary(fi,_,_,_) -> fi
 
 (* ---------------------------------------------------------------------- *)
 (* Printing *)

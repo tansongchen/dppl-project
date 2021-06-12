@@ -6,13 +6,13 @@ open Support.Error
 (* Data type definitions *)
 
 type operator =
-    Plus
-  | Minus
-  | Times
-  | Divide
-  | LT
-  | GT
-  | EQ
+    Plus of info
+  | Minus of info
+  | Times of info
+  | Divide of info
+  | LT of info
+  | GT of info
+  | EQ of info
 
 type ty =
     TyTop
