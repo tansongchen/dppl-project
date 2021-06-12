@@ -123,13 +123,13 @@ let rec eval1 ctx t = match t with
     if i1>i2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
   | TmGt(fi,(TmFloat(_,f1) as t1),t2) ->
       let t2' = eval1 ctx t2 in
-      TmPlus(fi,t1,t2') 
+      TmGt(fi,t1,t2') 
   | TmGt(fi,(TmInt(_,i1) as t1),t2) ->
       let t2' = eval1 ctx t2 in
-      TmPlus(fi,t1,t2') 
+      TmGt(fi,t1,t2') 
   | TmGt(fi,t1,t2) ->
       let t1' = eval1 ctx t1 in
-      TmPlus(fi,t1',t2)
+      TmGt(fi,t1',t2)
   | TmBinary (fi,op,TmFloat(_,f1),TmFloat(_,f2)) -> ( match op with
         Plus(_) -> TmFloat(fi, f1 +. f2)
       | Minus(_) -> TmFloat(fi, f1 -. f2)
