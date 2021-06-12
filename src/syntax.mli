@@ -27,6 +27,7 @@ type ty =
   | TyUnit
   | TyId of string
   | TyFloat
+  | TyList of ty
 
 type term =
     TmAscribe of info * term * ty
@@ -54,6 +55,11 @@ type term =
   | TmBinary of info * operator * term * term
   | TmPlus of info * term * term
   | TmGt of info * term * term
+  | TmNil of info * ty
+  | TmCons of info * term * term
+  | TmIsnil of info * term
+  | TmHead of info * term
+  | TmTail of info * term
 
 type binding =
     NameBind 

@@ -22,6 +22,8 @@ let rec isval ctx t = match t with
   | TmRecord(_,fields) -> List.for_all (fun (l,ti) -> isval ctx ti) fields
   | TmUnit(_)  -> true
   | TmFloat _  -> true
+  | TmNil(_,_) -> true
+  | TmCons(_,v1,v2) -> if (isval ctx v1) && (isval ctx v2) then true else false
   | _ -> false
 
 let rec eval1 ctx t = match t with
@@ -157,6 +159,25 @@ let rec eval1 ctx t = match t with
   | TmBinary(fi,op,t1,t2) ->
       let t1' = eval1 ctx t1 in
       TmBinary(fi,op,t1',t2)
+  | TmCons(fi,v1,t2) when isval ctx v1-> 
+      let t2' = eval1 ctx t2 in
+      TmCons(fi,v1,t2')
+  | TmCons(fi,t1,t2) ->
+      let t1' = eval1 ctx t1 in
+      TmCons(fi,t1',t2)
+  | TmIsnil(fi,TmNil(_,_)) -> TmTrue(dummyinfo)
+  | TmIsnil(fi,(TmCons(_,v11,v12) as v1)) when isval ctx v1 -> TmFalse(dummyinfo)
+  | TmIsnil(fi,t1) ->
+      let t1' = eval1 ctx t1 in
+      TmIsnil(fi,t1')
+  | TmHead(fi,(TmCons(_,v11,v12) as v1)) when isval ctx v1 -> v11
+  | TmHead(fi,t1) ->
+      let t1' = eval1 ctx t1 in
+      TmHead(fi,t1')
+  | TmTail(fi,(TmCons(_,v11,v12) as v1)) when isval ctx v1 -> v12
+  | TmTail(fi,t1) ->
+      let t1' = eval1 ctx t1 in
+      TmTail(fi,t1')
   | _ -> 
       raise NoRuleApplies
 
@@ -450,6 +471,28 @@ let rec typeof ctx t =
              if subtype ctx tyT12 tyT11 then tyT12
              else error fi "result of body not compatible with domain"
          | _ -> error fi "arrow type expected")
+  | TmNil(fi,tyT1) -> TyList(tyT1)
+  | TmCons(fi,t1,t2) ->
+      let tyT1 = typeof ctx t1 in
+      let tyT2 = typeof ctx t2 in
+      (match tyT2 with
+        TyList(tyT) -> if (tyeqv ctx tyT1 tyT) then TyList(tyT) else error fi "list type is not unique"
+      | _ -> error fi "not a list")
+  | TmIsnil(fi,t1) ->
+      let tyT1 = typeof ctx t1 in
+      (match tyT1 with
+        TyList(tyT) -> TyBool
+      | _ -> error fi "not a list")
+  | TmHead(fi,t1) ->
+      let tyT1 = typeof ctx t1 in
+      (match tyT1 with
+        TyList(tyT) -> tyT
+      | _ -> error fi "not a list")
+  | TmTail(fi,t1) ->
+      let tyT1 = typeof ctx t1 in
+      (match tyT1 with
+        TyList(tyT) -> TyList(tyT)
+      | _ -> error fi "not a list")
 
 let evalbinding ctx b = match b with
     TmAbbBind(t,tyT) ->

@@ -27,6 +27,7 @@ type ty =
   | TyUnit
   | TyId of string
   | TyFloat
+  | TyList of ty
 
 type term =
     TmAscribe of info * term * ty
@@ -54,6 +55,11 @@ type term =
   | TmBinary of info * operator * term * term
   | TmPlus of info * term * term
   | TmGt of info * term * term
+  | TmNil of info * ty
+  | TmCons of info * term * term
+  | TmIsnil of info * term
+  | TmHead of info * term
+  | TmTail of info * term
 
 type binding =
     NameBind 
@@ -125,6 +131,7 @@ let tymap onvar c tyT =
   | TyId(b) as tyT -> tyT
   | TyUnit -> TyUnit
   | TyFloat -> TyFloat
+  | TyList(tyT1) -> TyList(walk c tyT1)
   in walk c tyT
 
 let tmmap onvar ontype c t = 
@@ -159,6 +166,11 @@ let tmmap onvar ontype c t =
   | TmPlus(fi,t1,t2) -> TmPlus(fi, walk c t1, walk c t2)
   | TmGt(fi,t1,t2) -> TmGt(fi, walk c t1, walk c t2)
   | TmBinary(fi,op,t1,t2) -> TmBinary(fi, op, walk c t1, walk c t2)
+  | TmNil(fi,tyT1) -> TmNil(fi, ontype c tyT1)
+  | TmCons(fi,t1,t2) -> TmCons(fi, walk c t1, walk c t2)
+  | TmIsnil(fi,t1) -> TmIsnil(fi, walk c t1)
+  | TmHead(fi,t1) -> TmHead(fi, walk c t1)
+  | TmTail(fi,t1) -> TmTail(fi, walk c t1)
   in walk c t
 
 let typeShiftAbove d c tyT =
@@ -265,6 +277,11 @@ let tmInfo t = match t with
   | TmPlus(fi,_,_) -> fi
   | TmGt(fi,_,_) -> fi
   | TmBinary(fi,_,_,_) -> fi
+  | TmNil(fi,_) -> fi
+  | TmCons(fi,_,_) -> fi
+  | TmIsnil(fi,_) -> fi
+  | TmHead(fi,_) -> fi
+  | TmTail(fi,_) -> fi
 
 (* ---------------------------------------------------------------------- *)
 (* Printing *)
@@ -301,6 +318,7 @@ let rec printty_Type outer ctx tyT = match tyT with
       print_space ();
       printty_Type outer ctx1 tyT2;
       cbox()
+  | TyList(tyT1) -> pr "List "; printty_AType false ctx tyT
   | tyT -> printty_ArrowType outer ctx tyT
 
 and proty ctx tyS =
@@ -428,6 +446,21 @@ and printtm_AppTerm outer ctx t = match t with
   | TmGt(_,t1,t2) ->
        pr "gt "; printtm_ATerm false ctx t2; 
        pr " "; printtm_ATerm false ctx t2
+  | TmIsnil(_, t1) ->
+       obox();
+       pr "isnil ";
+       printtm_ATerm false ctx t1;
+       cbox()
+  | TmHead(_, t1) ->
+       obox();
+       pr "head ";
+       printtm_ATerm false ctx t1;
+       cbox()
+  | TmTail(_, t1) ->
+       obox();
+       pr "tail ";
+       printtm_ATerm false ctx t1;
+       cbox()
   | t -> printtm_PathTerm outer ctx t
 
 and printtm_AscribeTerm outer ctx t = match t with
@@ -479,6 +512,14 @@ and printtm_ATerm outer ctx t = match t with
   | TmUnit(_) -> pr "unit"
   | TmFloat(_,s) -> pr (string_of_float s)
   | TmInert(_,tyT) -> pr "inert["; printty_Type false ctx tyT; pr "]"
+  | TmNil(_,tyT1) -> pr "[] as List "; printty_Type false ctx tyT1
+  | TmCons(_,t1,t2) as c -> 
+      let rec f t= match t with
+          TmNil(_,tyT1) -> pr "[] as List "; printty_Type false ctx tyT1
+        | TmCons(_,v1,v2) -> 
+          pr "(cons "; printtm_Term false ctx v1; pr " "; f v2; pr ")"
+        | _ -> pr "(cons "; printtm_Term false ctx t1; pr " "; printtm_Term false ctx t2; pr ")"
+      in f c
   | t -> pr "("; printtm_Term outer ctx t; pr ")"
 
 let printtm ctx t = printtm_Term true ctx t 
