@@ -1,7 +1,352 @@
 \documentclass{beamer}
-\title{}
-\author{}
+\title{Abstracting Distributed Computing with System $\mathsf{F_{<:}}$}
+\subtitle{Project Final Report in \\ Course \emph{Design Principles of Programming Languages}}
+% \titlegraphic{\includegraphics[width=.5\textwidth]{pyscf-logo.png}}
+\author[Tan, Wang and Zhu]{Songchen Tan\thanks{tansongchen@pku.edu.cn}\quad Yue Wang\thanks{wangyue0502@pku.edu.cn}\quad Ruidong Zhu\thanks{zhurd@pku.edu.cn}}
+\institute[PKU]{\normalsize Peking University}
 \date{\today}
+\useinnertheme{rectangles}
+\useoutertheme{infolines}
+\usecolortheme[rgb={0.9,0.4,0.2}]{structure}
+\usecolortheme{rose}
+\usecolortheme{whale}
+\usefonttheme{professionalfonts}
+\beamertemplatenavigationsymbolsempty
+\newif\ifnottitlepage
+\nottitlepagefalse
+\setbeamercolor*{palette secondary}{use=structure,fg=white,bg=structure.fg!90!black}
+\setbeamercolor*{palette tertiary}{use=structure,fg=white,bg=structure.fg!80!black}
+\defbeamertemplate*{title page}{mytitlepage}[1][]{
+  \vbox{}
+  \vfill
+  \begingroup
+    \centering
+    {\usebeamercolor[fg]{titlegraphic}\inserttitlegraphic\par}
+    \vskip1em
+    \begin{beamercolorbox}[sep=8pt,center,#1]{title}
+      \usebeamerfont{title}\inserttitle\par%
+      \ifx\insertsubtitle\@empty%
+      \else%
+        \vskip0.25em%
+        {\usebeamerfont{subtitle}\usebeamercolor[fg]{subtitle}\insertsubtitle\par}%
+      \fi%     
+    \end{beamercolorbox}%
+    \vskip1em\par
+    \begin{beamercolorbox}[sep=8pt,center,#1]{author}
+      \usebeamerfont{author}\insertauthor
+    \end{beamercolorbox}
+    \begin{beamercolorbox}[sep=8pt,center,#1]{institute}
+      \usebeamerfont{institute}\insertinstitute
+    \end{beamercolorbox}
+    \begin{beamercolorbox}[sep=8pt,center,#1]{date}
+      \usebeamerfont{date}\insertdate
+    \end{beamercolorbox}
+  \endgroup
+  \vfill
+}
+\setbeamertemplate{title page}[mytitlepage]
+
+\defbeamertemplate*{headline}{myheadline}
+{
+  \begin{beamercolorbox}[colsep=1.5pt]{upper separation line head}
+  \end{beamercolorbox}
+  \begin{beamercolorbox}{section in head/foot}
+    \vskip2pt\insertnavigation{\paperwidth}\vskip2pt
+  \end{beamercolorbox}%
+  \begin{beamercolorbox}[colsep=1.5pt]{lower separation line head}
+  \end{beamercolorbox}
+}
+\setbeamertemplate{headline}[myheadline]
+
+\makeatletter
+    \newenvironment{withoutheadline}{
+        \setbeamertemplate{headline}[default]
+        \def\beamer@entrycode{\vspace*{-\headheight}}
+    }{}
+\makeatother
+
+\AtBeginSection[]
+{
+  \begin{frame}<beamer>{大纲}
+    \tableofcontents[currentsection]
+  \end{frame}
+}
+
+\usepackage{xcolor}
+\usepackage{listings}
+\lstset{
+	basicstyle = \ttfamily,
+  showstringspaces = false,
+	frame = lrtb,
+	% numbers = left,
+	captionpos = t,
+	breaklines = true
+  basewidth = 0.5em,
+  % linewidth = 8cm,
+}
+
+\usepackage{amsmath}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\usepackage{mathspec}
+\usepackage{fontspec}
+\usepackage{newunicodechar}
+\setmonofont{Consolas}
+\setmathtt{Consolas}
+\newfontfamily{\fallbackfont}{Menlo}[Scale=MatchLowercase]
+\DeclareTextFontCommand{\textfallback}{\fallbackfont}
+\newunicodechar{∀}{\textfallback{∀}}
+\usepackage{booktabs}
+
+% \newunicodechar{ϱ}{\textfallback{ϱ}}
 \begin{document}
-\maketitle
+% \begin{withoutheadline}
+\begin{frame}
+\titlepage
+\end{frame}
+% \end{withoutheadline}
+% \nottitlepagetrue
+
+\begin{frame}
+\frametitle{Contents}
+\tableofcontents
+\end{frame}
+\section{Introduction}
+\begin{frame}
+    \frametitle{Motivation}
+    
+    Distributed computing is often achieved by networked computers which communicate and coordinate their actions by passing messages to each other. Each processor has access to its own private memory (either on different machines or on isolated segments of the same machine).
+
+    There exists infrastructures like Message Passing Interface (MPI), but explicit communication is not easy to write and read.
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Goals}
+
+We would like to build a language without explicit communication and that language eventually compiles to MPI.
+
+\begin{itemize}
+  \item Encode the location information in the type system, i.e. for type \verb|T|, there exists type \verb|T @ n| for data located at the memory owned by process \verb|n|;
+  \item Provide built-in polymorphic functions with \emph{ad hoc} polymorphism, which handles all communication work;
+  \item Let user define their own polymorphic functions with parametric polymorphism.
+\end{itemize}
+
+Nevertheless, let's talk about the formal definition of the problem to solve after the formal definition of our language.
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Principles}
+
+We make heavy use of bounded quantification (polymorphism constrained to subtypes of a type) in system $\mathsf{F_{<:}}$.
+
+Bounded quantification make some assumptions about the universal type \verb|X|, formally \verb|λX<:T.t|, so that we can use these assumptions to operate data in the body \verb|t|.
+
+\begin{example}
+    \verb|  f = λX<:{a:Nat}. λx:X. {asucc=succ(x.a)}|
+    \\
+    \verb|▸ f : ∀X<:{a:Nat}. X → {asucc:Nat}|
+\end{example}
+
+We base our language on pure $\mathsf{F_{<:}}$ (on TAPL page 392) with basic types (string, record, boolean, natural numbers and floating point numbers) and features (ascribing, existential types, let-binding and fix).
+
+For simplicity here, we only show our extensions above this, but the full definition is available in our later report.
+
+\end{frame}
+
+\section{Formalities}
+
+\begin{frame}[fragile]
+    \frametitle{Syntax}
+    \centering
+    \begin{tabular}{llr}
+        t ::= & ... & terms: \\
+        & $\mathtt{t @ l}$ & distribution \\
+        & $\mathtt{[t_i]}$ & list \\
+        & $\mathtt{[t_i] @ [l_i]}$ & distribution list \\
+        & & \\
+        v ::= & ... & values: \\
+        & $\mathtt{v @ l}$ & distribution value \\
+        & $\mathtt{[v_i]}$ & list value \\
+        & $\mathtt{[v_i] @ [l_i]}$ & distribution list value \\
+        & & \\
+        T ::= & ... & types: \\
+        & $\mathtt{T @ l}$ & distribution type \\
+        & List T & list type \\
+        & & \\
+    \end{tabular}
+
+    Furthermore, \verb|+, -, *, /, <, =, >| are defined for Nat and Float. 
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Evaluation \fbox{\texttt{t → t'}}}
+
+    Similar to pure fsub, but we add some syntactic sugars
+
+    \begin{equation}
+        \frac{\mathtt{\texttt{Γ} \vdash v : T @ l}}{\mathtt{(\lambda X <: T. \lambda x : X . t) v \to [X \mapsto T @ l, x \mapsto v] t}}
+        \tag{\textsc{E-Sugar}}
+    \end{equation}
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Subtyping \fbox{$\mathtt{\texttt{Γ} \vdash S <: T}$}}
+
+    \begin{equation}
+        \mathtt{\texttt{Γ} \vdash T @ l <: T}
+        \tag{\textsc{S-Dist}}
+    \end{equation}
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Typing Rule}
+
+    \begin{equation}
+        \frac{\mathtt{\texttt{Γ} \vdash t : T}}{\mathtt{\texttt{Γ} \vdash t @ l : T @ l}}
+        \tag{\textsc{T-Dist}}
+    \end{equation}
+
+    \begin{equation}
+        \frac{\mathtt{\texttt{Γ} \vdash t_i : T}}{\mathtt{\texttt{Γ} \vdash [t_i] : List~T}}
+        \tag{\textsc{T-List}}
+    \end{equation}
+
+\end{frame}
+
+\section{Properties}
+\begin{frame}
+    \frametitle{Preservation}
+
+    \begin{theorem}[Preservation]
+        
+    \end{theorem}
+
+\end{frame}
+\begin{frame}
+    \frametitle{Progress}
+
+    \begin{theorem}[Progress]
+        
+    \end{theorem}
+
+\end{frame}
+\begin{frame}
+    \frametitle{Problem Solving}
+
+    \begin{theorem}[Distribution Invariance]
+        
+    \end{theorem}
+
+\end{frame}
+\section{Examples}
+
+\begin{frame}[fragile]
+\frametitle{I. Distribution Types}
+
+\begin{example}[Distribution Types]
+    \verb|  a = 1 @ 1|
+    \\
+    \verb|▸ a : Nat @ 1|
+    \\
+    \verb|  b = 2 @ 2|
+    \\
+    \verb|▸ b : Nat @ 2|
+    \\
+    \verb|  b' = 2|
+    \\
+    \verb|▸ b' : Nat @ 7|
+    \\
+    \verb|  list = [4, 5, 6] @ [4, 5, 6]|
+    \\
+    \verb|▸ list : List Nat|
+    \\
+    \verb|  autolist = [7, 8, 9, 10]|
+    \\
+    \verb|▸ autolist : List Nat|
+\end{example}
+
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{II. Built-in Polymorphic Functions}
+
+    \begin{example}[Built-in Polymorphic Functions]
+        \verb|▸ + : ∀X<:Nat. ∀Y<:Nat. X -> Y -> Nat|
+        \verb|▸ > : ∀X<:Nat. ∀Y<:Nat. X -> Y -> Bool|
+        \verb|  c = + a b @ 3|
+        \\
+        \verb|▸ c : Nat @ 3|
+        \\
+        \verb|  t = > b a|
+        \\
+        \verb|▸ t : Bool @ 2|
+    \end{example}
+
+\end{frame}
+\begin{frame}[fragile]
+    \frametitle{User-defined Polymorphic Functions}
+\begin{example}[Built-in Polymorphic Functions]
+    \verb|▸ + : ∀X<:Nat. ∀Y<:Nat. X -> Y -> Nat|
+    \verb|▸ > : ∀X<:Nat. ∀Y<:Nat. X -> Y -> Bool|
+    \verb|  square = λX<:Nat. λx:X. times x x|
+    \\
+    \verb|▸ square : ∀X<:Nat. X -> Nat|
+    \\
+    \verb|  min = λX<:Nat. λY<:Nat. λx:X. λy:Y.|
+    \\
+    \verb|     if (greater x y) then y else x|
+    \\
+    \verb|▸ min : ∀X<:Nat. ∀Y<:Nat. X -> Y -> Nat|
+\end{example}
+
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{User-defined Functional}
+
+    \begin{example}[Built-in Polymorphic Functions]
+        \verb|▸ map : ∀X. ∀Y. (X -> Y) -> List X -> List Y|
+        \\
+        \verb|▸ reduce : ∀X. (X -> X -> X) -> List X -> X -> X|
+        \\
+        \verb|  squared_list = map [Nat] [Nat] square list|
+        \\
+        \verb|▸ squared_list : List Nat|
+        \\
+        \verb|  value = reduce [Nat] min autolist 0|
+        \\
+        \verb|▸ value : Nat|
+    \end{example}    
+
+\end{frame}
+
+\section{Conclusion}
+
+\begin{frame}
+    \frametitle{Summary}
+  
+    \begin{itemize}
+      \item 
+    \end{itemize}
+
+\end{frame}
+
+\begin{frame}
+    \frametitle{Deficiencies and Possible Improvements}
+  
+    \begin{itemize}
+      \item Since all ad-hoc polymorphisms are hard-coded in the language, users cannot define their own dispatch behaviors
+    \end{itemize}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Discussion}
+
+\end{frame}
+
 \end{document}

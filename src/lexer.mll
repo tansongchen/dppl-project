@@ -11,42 +11,34 @@ open Support.Error
 
 let reservedWords = [
   (* Keywords *)
-  ("type", fun i -> Parser.TYPE i);
-  ("inert", fun i -> Parser.INERT i);
-  ("lambda", fun i -> Parser.LAMBDA i);
+  ("import", fun i -> Parser.IMPORT i);
+  ("String", fun i -> Parser.USTRING i);
   ("Top", fun i -> Parser.TTOP i);
+  ("type", fun i -> Parser.TYPE i);
+  ("<:", fun i -> Parser.LEQ i);
+  ("All", fun i -> Parser.ALL i);
+  ("Some", fun i -> Parser.SOME i);
+  ("let", fun i -> Parser.LET i);
+  ("in", fun i -> Parser.IN i);
+  ("as", fun i -> Parser.AS i);
+  ("lambda", fun i -> Parser.LAMBDA i);
   ("if", fun i -> Parser.IF i);
   ("then", fun i -> Parser.THEN i);
   ("else", fun i -> Parser.ELSE i);
   ("true", fun i -> Parser.TRUE i);
   ("false", fun i -> Parser.FALSE i);
   ("Bool", fun i -> Parser.BOOL i);
-  ("Bot", fun i -> Parser.TBOT i);
-  ("let", fun i -> Parser.LET i);
-  ("in", fun i -> Parser.IN i);
-  ("fix", fun i -> Parser.FIX i);
-  ("letrec", fun i -> Parser.LETREC i);
-  ("case", fun i -> Parser.CASE i);
-  ("of", fun i -> Parser.OF i);
-  ("as", fun i -> Parser.AS i);
-  ("String", fun i -> Parser.USTRING i);
-  ("unit", fun i -> Parser.UNIT i);
-  ("ref", fun i -> Parser.REF i);
-  ("Unit", fun i -> Parser.UUNIT i);
-  ("Ref", fun i -> Parser.RREF i);
-  ("error", fun i -> Parser.ERROR i);
-  ("try", fun i -> Parser.TRY i);
-  ("with", fun i -> Parser.OTHERWISE i);
-  ("timesfloat", fun i -> Parser.TIMESFLOAT i);
   ("succ", fun i -> Parser.SUCC i);
   ("pred", fun i -> Parser.PRED i);
   ("iszero", fun i -> Parser.ISZERO i);
-  ("Float", fun i -> Parser.UFLOAT i);
-  ("<:", fun i -> Parser.LEQ i);
-  ("All", fun i -> Parser.ALL i);
-  ("Source", fun i -> Parser.SSOURCE i);
-  ("Sink", fun i -> Parser.SSINK i);
   ("Nat", fun i -> Parser.NAT i);
+  ("unit", fun i -> Parser.UNIT i);
+  ("Unit", fun i -> Parser.UUNIT i);
+  ("timesfloat", fun i -> Parser.TIMESFLOAT i);
+  ("Float", fun i -> Parser.UFLOAT i);
+  ("inert", fun i -> Parser.INERT i);
+  ("fix", fun i -> Parser.FIX i);
+  ("letrec", fun i -> Parser.LETREC i);
   
   (* Symbols *)
   ("_", fun i -> Parser.USCORE i);
@@ -156,7 +148,7 @@ let extractLineno yytext offset =
 rule main = parse
   [' ' '\009' '\012']+     { main lexbuf }
 
-| [' ' '\009' '\012']*("\r")?"\n" { newline lexbuf; main lexbuf }
+| [' ' '\009' '\012']*"\n" { newline lexbuf; main lexbuf }
 
 | "*/" { error (info lexbuf) "Unmatched end of comment" }
 

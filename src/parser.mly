@@ -22,42 +22,34 @@ open Syntax
  */
 
 /* Keyword tokens */
-%token <Support.Error.info> TYPE
-%token <Support.Error.info> INERT
-%token <Support.Error.info> LAMBDA
+%token <Support.Error.info> IMPORT
+%token <Support.Error.info> USTRING
 %token <Support.Error.info> TTOP
+%token <Support.Error.info> TYPE
+%token <Support.Error.info> LEQ
+%token <Support.Error.info> ALL
+%token <Support.Error.info> SOME
+%token <Support.Error.info> LET
+%token <Support.Error.info> IN
+%token <Support.Error.info> AS
+%token <Support.Error.info> LAMBDA
 %token <Support.Error.info> IF
 %token <Support.Error.info> THEN
 %token <Support.Error.info> ELSE
 %token <Support.Error.info> TRUE
 %token <Support.Error.info> FALSE
 %token <Support.Error.info> BOOL
-%token <Support.Error.info> TBOT
-%token <Support.Error.info> LET
-%token <Support.Error.info> IN
-%token <Support.Error.info> FIX
-%token <Support.Error.info> LETREC
-%token <Support.Error.info> CASE
-%token <Support.Error.info> OF
-%token <Support.Error.info> AS
-%token <Support.Error.info> USTRING
-%token <Support.Error.info> UNIT
-%token <Support.Error.info> REF
-%token <Support.Error.info> UUNIT
-%token <Support.Error.info> RREF
-%token <Support.Error.info> ERROR
-%token <Support.Error.info> TRY
-%token <Support.Error.info> OTHERWISE
-%token <Support.Error.info> TIMESFLOAT
 %token <Support.Error.info> SUCC
 %token <Support.Error.info> PRED
 %token <Support.Error.info> ISZERO
-%token <Support.Error.info> UFLOAT
-%token <Support.Error.info> LEQ
-%token <Support.Error.info> ALL
-%token <Support.Error.info> SSOURCE
-%token <Support.Error.info> SSINK
 %token <Support.Error.info> NAT
+%token <Support.Error.info> UNIT
+%token <Support.Error.info> UUNIT
+%token <Support.Error.info> TIMESFLOAT
+%token <Support.Error.info> UFLOAT
+%token <Support.Error.info> INERT
+%token <Support.Error.info> FIX
+%token <Support.Error.info> LETREC
 
 /* Identifier and constant value tokens */
 %token <string Support.Error.withinfo> UCID  /* uppercase-initial */
@@ -141,12 +133,18 @@ toplevel :
 
 /* A top-level command */
 Command :
+    IMPORT STRINGV { fun ctx -> (Import($2.v)),ctx }
   | Term 
       { fun ctx -> (let t = $1 ctx in Eval(tmInfo t,t)),ctx }
   | UCID TyBinder
       { fun ctx -> ((Bind($1.i, $1.v, $2 ctx)), addname ctx $1.v) }
   | LCID Binder
       { fun ctx -> ((Bind($1.i,$1.v,$2 ctx)), addname ctx $1.v) }
+  | LCURLY UCID COMMA LCID RCURLY EQ Term
+     { fun ctx ->
+         let ctx1 = addname ctx $2.v in
+         let ctx2 = addname ctx1 $4.v in
+         (SomeBind($1,$2.v,$4.v,$7 ctx), ctx2) }
 
 /* Right-hand sides of top-level bindings */
 Binder :
@@ -159,47 +157,46 @@ Binder :
 Type :
     ArrowType
                 { $1 }
-  | RREF AType
-      { fun ctx -> TyRef($2 ctx) }
   | ALL UCID OType DOT Type
       { fun ctx ->
           let ctx1 = addname ctx $2.v in
           TyAll($2.v,$3 ctx,$5 ctx1) }
-  | SSOURCE AType
-      { fun ctx -> TySource($2 ctx) }
-  | SSINK AType
-      { fun ctx -> TySink($2 ctx) }
 
 /* Atomic types are those that never need extra parentheses */
 AType :
     LPAREN Type RPAREN  
            { $2 } 
+  | USTRING
+      { fun ctx -> TyString }
+  | TTOP
+      { fun ctx -> TyTop }
   | UCID 
       { fun ctx ->
           if isnamebound ctx $1.v then
             TyVar(name2index $1.i ctx $1.v, ctxlength ctx)
           else 
             TyId($1.v) }
-  | TTOP
-      { fun ctx -> TyTop }
-  | BOOL
-      { fun ctx -> TyBool }
-  | TBOT
-      { fun ctx -> TyBot }
+  | LCURLY SOME UCID OType COMMA Type RCURLY
+      { fun ctx ->
+          let ctx1 = addname ctx $3.v in
+          TySome($3.v, $4 ctx, $6 ctx1) }
   | LCURLY FieldTypes RCURLY
       { fun ctx ->
           TyRecord($2 ctx 1) }
-  | LT FieldTypes GT
-      { fun ctx ->
-          TyVariant($2 ctx 1) }
-  | USTRING
-      { fun ctx -> TyString }
+  | BOOL
+      { fun ctx -> TyBool }
+  | NAT
+      { fun ctx -> TyNat }
   | UUNIT
       { fun ctx -> TyUnit }
   | UFLOAT
       { fun ctx -> TyFloat }
-  | NAT
-      { fun ctx -> TyNat }
+
+AscribeTerm :
+    ATerm AS Type
+      { fun ctx -> TmAscribe($2, $1 ctx, $3 ctx) }
+  | ATerm
+      { $1 }
 
 TyBinder :
     /* empty */
@@ -208,6 +205,12 @@ TyBinder :
       { fun ctx -> TyVarBind($2 ctx) }
   | EQ Type
       { fun ctx -> TyAbbBind($2 ctx) }
+
+OType :
+   /* empty */
+      { fun ctx -> TyTop}
+ | LEQ Type 
+      { $2 }
 
 /* An "arrow type" is a sequence of atomic types separated by
    arrows. */
@@ -220,6 +223,15 @@ ArrowType :
 Term :
     AppTerm
       { $1 }
+  | LAMBDA UCID OType DOT Term
+      { fun ctx ->
+          let ctx1 = addname ctx $2.v in
+          TmTAbs($1,$2.v,$3 ctx,$5 ctx1) }
+  | LET LCURLY UCID COMMA LCID RCURLY EQ Term IN Term
+      { fun ctx ->
+          let ctx1 = addname ctx $3.v in
+          let ctx2 = addname ctx1 $5.v in
+          TmUnpack($1,$3.v,$5.v,$8 ctx,$10 ctx2) }
   | LAMBDA LCID COLON Type DOT Term 
       { fun ctx ->
           let ctx1 = addname ctx $2.v in
@@ -239,46 +251,31 @@ Term :
           let ctx1 = addname ctx $2.v in 
           TmLet($1, $2.v, TmFix($1, TmAbs($1, $2.v, $4 ctx, $6 ctx1)),
                 $8 ctx1) }
-  | CASE Term OF Cases
-      { fun ctx ->
-          TmCase($1, $2 ctx, $4 ctx) }
-  | AppTerm COLONEQ AppTerm
-      { fun ctx -> TmAssign($2, $1 ctx, $3 ctx) }
-  | TRY Term OTHERWISE Term
-      { fun ctx -> TmTry($1, $2 ctx, $4 ctx) }
-  | LAMBDA UCID OType DOT Term
-      { fun ctx ->
-          let ctx1 = addname ctx $2.v in
-          TmTAbs($1,$2.v,$3 ctx,$5 ctx1) }
 
 AppTerm :
     PathTerm
       { $1 }
+  | AppTerm LSQUARE Type RSQUARE
+      { fun ctx ->
+          let t1 = $1 ctx in
+          let t2 = $3 ctx in
+          TmTApp(tmInfo t1,t1,t2) }
   | AppTerm PathTerm
       { fun ctx ->
           let e1 = $1 ctx in
           let e2 = $2 ctx in
           TmApp(tmInfo e1,e1,e2) }
-  | FIX PathTerm
-      { fun ctx ->
-          TmFix($1, $2 ctx) }
-  | REF PathTerm
-      { fun ctx -> TmRef($1, $2 ctx) }
-  | BANG PathTerm 
-      { fun ctx -> TmDeref($1, $2 ctx) }
-  | TIMESFLOAT PathTerm PathTerm
-      { fun ctx -> TmTimesfloat($1, $2 ctx, $3 ctx) }
   | SUCC PathTerm
       { fun ctx -> TmSucc($1, $2 ctx) }
   | PRED PathTerm
       { fun ctx -> TmPred($1, $2 ctx) }
   | ISZERO PathTerm
       { fun ctx -> TmIsZero($1, $2 ctx) }
-  | AppTerm LSQUARE Type RSQUARE
+  | TIMESFLOAT PathTerm PathTerm
+      { fun ctx -> TmTimesfloat($1, $2 ctx, $3 ctx) }
+  | FIX PathTerm
       { fun ctx ->
-          let t1 = $1 ctx in
-          let t2 = $3 ctx in
-          TmTApp(tmInfo t1,t1,t2) }
+          TmFix($1, $2 ctx) }
 
 PathTerm :
     PathTerm DOT LCID
@@ -308,12 +305,6 @@ FieldType :
   | Type
       { fun ctx i -> (string_of_int i, $1 ctx) }
 
-AscribeTerm :
-    ATerm AS Type
-      { fun ctx -> TmAscribe($2, $1 ctx, $3 ctx) }
-  | ATerm
-      { $1 }
-
 TermSeq :
     Term 
       { $1 }
@@ -325,35 +316,33 @@ TermSeq :
 ATerm :
     LPAREN TermSeq RPAREN  
       { $2 } 
-  | INERT LSQUARE Type RSQUARE 
-      { fun ctx -> TmInert($1, $3 ctx) }
+  | STRINGV
+      { fun ctx -> TmString($1.i, $1.v) }
+  | LCURLY STAR Type COMMA Term RCURLY AS Type
+      { fun ctx ->
+          TmPack($1,$3 ctx,$5 ctx,$8 ctx) }
   | LCID 
       { fun ctx ->
           TmVar($1.i, name2index $1.i ctx $1.v, ctxlength ctx) }
+  | LCURLY Fields RCURLY
+      { fun ctx ->
+          TmRecord($1, $2 ctx 1) }
   | TRUE
       { fun ctx -> TmTrue($1) }
   | FALSE
       { fun ctx -> TmFalse($1) }
-  | LCURLY Fields RCURLY
-      { fun ctx ->
-          TmRecord($1, $2 ctx 1) }
-  | LT LCID EQ Term GT AS Type
-      { fun ctx ->
-          TmTag($1, $2.v, $4 ctx, $7 ctx) }
-  | STRINGV
-      { fun ctx -> TmString($1.i, $1.v) }
-  | UNIT
-      { fun ctx -> TmUnit($1) }
-  | ERROR
-      { fun ctx -> TmError($1) }
-  | FLOATV
-      { fun ctx -> TmFloat($1.i, $1.v) }
   | INTV
       { fun ctx ->
           let rec f n = match n with
               0 -> TmZero($1.i)
             | n -> TmSucc($1.i, f (n-1))
           in f $1.v }
+  | UNIT
+      { fun ctx -> TmUnit($1) }
+  | FLOATV
+      { fun ctx -> TmFloat($1.i, $1.v) }
+  | INERT LSQUARE Type RSQUARE 
+      { fun ctx -> TmInert($1, $3 ctx) }
 
 Fields :
     /* empty */
@@ -372,24 +361,6 @@ Field :
       { fun ctx i -> ($1.v, $3 ctx) }
   | Term
       { fun ctx i -> (string_of_int i, $1 ctx) }
-
-Cases :
-    Case
-      { fun ctx -> [$1 ctx] }
-  | Case VBAR Cases
-      { fun ctx -> ($1 ctx) :: ($3 ctx) }
-
-Case :
-    LT LCID EQ LCID GT DDARROW AppTerm
-      { fun ctx ->
-          let ctx1 = addname ctx $4.v in
-          ($2.v, ($4.v, $7 ctx1)) }
-
-OType :
-   /* empty */
-      { fun ctx -> TyTop}
- | LEQ Type 
-      { $2 }
 
 
 /*   */
