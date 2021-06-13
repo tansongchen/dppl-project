@@ -32,11 +32,22 @@ y = [1.0, 2.1];
 
 cons -0.5 y;
 
-(lambda x:List Float. head x) [2.3,3.3];
+(lambda x:List Float. head x) [2.3,3.3]; 
 
 cons 1.0 + 0.5 y;
 
 [1+2, 3*4, 5];
+
+1@1 + 2@3;
+
+10.0 @ 3;
+
+z=[1@1, 2@2];
+
+head z;
+
+[(1 + 2)@3, (4 * 5)@2, (6 - 7)@3];
+
 
 map=lambda g:Float->Float.
     fix(lambda f:List Float->List Float. lambda l:List Float. 

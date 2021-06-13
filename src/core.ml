@@ -275,6 +275,9 @@ let rec tyeqv ctx tyS tyT =
   | (TyString,TyString) -> true
   | (TyFloat,TyFloat) -> true
   | (TyTop,TyTop) -> true
+  | (TyAt(tyT1,_),TyAt(tyT2,_)) -> tyeqv ctx tyT1 tyT2
+  | (TyAt(tyT1,_),_) -> tyeqv ctx tyT1 tyT
+  | (_,TyAt(tyT2,_)) ->tyeqv ctx tyS tyT2
   | _ -> false
 
 let rec subtype ctx tyS tyT =
@@ -304,6 +307,7 @@ let rec subtype ctx tyS tyT =
         subtype ctx1 tyS2 tyT2
    | (TyList(tyT1), TyList(tyT2)) ->
         subtype ctx tyT1 tyT2
+   | (TyAt(tyT1,_),TyAt(tyT2,_)) -> subtype ctx tyT1 tyT2
    | (TyAt(tyT1,_),_) -> subtype ctx tyT1 tyT
    | (_,_) -> 
        false

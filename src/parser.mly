@@ -102,6 +102,7 @@ open Syntax
 %token <Support.Error.info> USCORE
 %token <Support.Error.info> VBAR
 %token <Support.Error.info> MINUS
+%token <Support.Error.info> AT
 
 
 
@@ -290,19 +291,6 @@ NumList :
   | COMMA AppTerm NumList
       { fun ctx -> TmCons($1, $2 ctx, $3 ctx)}
 
-
-IntList :
-    /* empty */
-      { fun ctx -> TmNil(dummyinfo, TyInt) }
-  | COMMA INTV IntList
-      { fun ctx -> TmCons($1, TmInt($2.i, $2.v), $3 ctx)}
-
-FloatList :
-    /* empty */
-      { fun ctx -> TmNil(dummyinfo, TyFloat) }
-  | COMMA FLOATV FloatList
-      { fun ctx -> TmCons($1, TmFloat($2.i, $2.v), $3 ctx)}
-
 AppTerm :
     AppTerm LSQUARE Type RSQUARE
       { fun ctx ->
@@ -322,10 +310,6 @@ AppTerm :
       { fun ctx -> TmPlus($1, $2 ctx, $3 ctx) }
   | GT PathTerm PathTerm
       { fun ctx -> TmGt($1, $2 ctx, $3 ctx) }
-  | PathTerm Operator PathTerm
-      { fun ctx -> 
-            let t1 = $1 ctx in
-            TmBinary(tmInfo t1, $2 ctx, t1, $3 ctx) }
   | FIX PathTerm
       { fun ctx ->
           TmFix($1, $2 ctx) }
@@ -345,6 +329,13 @@ PathTerm :
   | PathTerm DOT INTV
       { fun ctx ->
           TmProj($2, $1 ctx, string_of_int $3.v) }
+  | PathTerm AT INTV
+      { fun ctx ->
+          TmAt($2, $1 ctx, $3.v) }
+  | PathTerm Operator PathTerm
+      { fun ctx -> 
+            let t1 = $1 ctx in
+            TmBinary(tmInfo t1, $2 ctx, t1, $3 ctx) }
   | AscribeTerm
       { $1 }
   | ListTerm
