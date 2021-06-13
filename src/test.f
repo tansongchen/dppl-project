@@ -56,6 +56,16 @@ map=lambda g:Float->Float.
 
 map ((lambda X<:Float. lambda x:X. x*2.0) [Float])  [2.6,4.8];
 
+["hi","hello"];
+[true, false];
+
+bla = 3;
+[4,bla];
+
+[true];
+
+[] as List Bool;
+
 /*
 cons 2 (cons 3.2 [] as List Int);
 

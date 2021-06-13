@@ -192,10 +192,6 @@ AType :
   | LCURLY FieldTypes RCURLY
       { fun ctx ->
           TyRecord($2 ctx 1) }
-  | ULIST UINT
-      { fun ctx -> TyList(TyInt) }
-  | ULIST UFLOAT
-      { fun ctx -> TyList(TyFloat) }
   | BOOL
       { fun ctx -> TyBool }
   | UINT
@@ -204,6 +200,8 @@ AType :
       { fun ctx -> TyUnit }
   | UFLOAT
       { fun ctx -> TyFloat }
+  | ULIST AType
+      { fun ctx -> TyList($2 ctx) }
 
 AscribeTerm :
     ATerm AS Type
@@ -276,10 +274,8 @@ Operator :
 
 /* ATYPE : Int Float */
 ListTerm :
-    LSQUARE RSQUARE AS ULIST UINT
-      { fun ctx -> TmNil($1, TyInt) }
-  | LSQUARE RSQUARE AS ULIST UFLOAT
-      { fun ctx -> TmNil($1, TyFloat) }
+    LSQUARE RSQUARE AS ULIST AType
+      { fun ctx -> TmNil($1, $5 ctx) }
   | CONS AppTerm PathTerm
       { fun ctx -> TmCons($1, $2 ctx, $3 ctx)}
   | LSQUARE AppTerm NumList RSQUARE
