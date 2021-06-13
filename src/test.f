@@ -48,6 +48,7 @@ head z;
 
 [(1 + 2)@3, (4 * 5)@2, (6 - 7)@3];
 
+[2.5@1, 3.7@1, -0.4@1];
 
 map=lambda g:Float->Float.
     fix(lambda f:List Float->List Float. lambda l:List Float. 

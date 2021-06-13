@@ -275,9 +275,7 @@ let rec tyeqv ctx tyS tyT =
   | (TyString,TyString) -> true
   | (TyFloat,TyFloat) -> true
   | (TyTop,TyTop) -> true
-  | (TyAt(tyT1,_),TyAt(tyT2,_)) -> tyeqv ctx tyT1 tyT2
-  | (TyAt(tyT1,_),_) -> tyeqv ctx tyT1 tyT
-  | (_,TyAt(tyT2,_)) ->tyeqv ctx tyS tyT2
+  | (TyAt(tyT1,dis1),TyAt(tyT2,dis2)) -> (tyeqv ctx tyT1 tyT2) && (dis1=dis2)
   | _ -> false
 
 let rec subtype ctx tyS tyT =
@@ -307,7 +305,6 @@ let rec subtype ctx tyS tyT =
         subtype ctx1 tyS2 tyT2
    | (TyList(tyT1), TyList(tyT2)) ->
         subtype ctx tyT1 tyT2
-   | (TyAt(tyT1,_),TyAt(tyT2,_)) -> subtype ctx tyT1 tyT2
    | (TyAt(tyT1,_),_) -> subtype ctx tyT1 tyT
    | (_,_) -> 
        false
@@ -338,6 +335,10 @@ let rec join ctx tyS tyT =
   | (TyArr(tyS1,tyS2),TyArr(tyT1,tyT2)) ->
       (try TyArr(meet ctx tyS1 tyT1, join ctx tyS2 tyT2)
         with Not_found -> TyTop)
+  | (TyAt(tyT1,dis1),TyAt(tyT2,dis2)) -> 
+        if tyeqv ctx tyT1 tyT2 
+        then TyAt(tyT1,0)
+        else TyTop
   | _ -> 
       TyTop
 
@@ -507,7 +508,9 @@ let rec typeof ctx t =
       (match t2 with
           TmNil(_,ty) -> if (subtype ctx tyT1 ty) then TyList(tyT1) else error fi "list type is not unique"
         | _ -> (match tyT2 with
-            TyList(tyT) -> if (tyeqv ctx tyT1 tyT) then TyList(tyT) else error fi "list type is not unique"
+            TyList(tyT) -> 
+              let tyB = join ctx tyT1 tyT in
+              if (tyeqv ctx tyB TyTop) then error fi "list type is not unique" else TyList(tyB)
           | _ -> error fi "not a list")
 
       )
