@@ -327,7 +327,10 @@ PathTerm :
           TmProj($2, $1 ctx, string_of_int $3.v) }
   | PathTerm AT INTV
       { fun ctx ->
-          TmAt($2, $1 ctx, $3.v) }
+          let t1 = $1 ctx in ( match t1 with
+              TmAt(_,t3,_) -> TmAt($2,t3,$3.v)
+            | _ -> TmAt($2, t1, $3.v)
+          ) }
   | PathTerm Operator PathTerm
       { fun ctx -> 
             let t1 = $1 ctx in
@@ -390,9 +393,9 @@ ATerm :
 
 Number :
     INTV
-      { fun ctx -> TmInt($1.i, $1.v) }
+      { fun ctx -> TmAt($1.i,TmInt($1.i, $1.v),0) }
   | FLOATV
-      { fun ctx -> TmFloat($1.i, $1.v) }
+      { fun ctx -> TmAt($1.i,TmFloat($1.i, $1.v),0) }
 
 Fields :
     /* empty */

@@ -1,5 +1,5 @@
 /* Examples for testing */
-
+/*
 timesfloat -2.0 3.14159;
 
 let x=true in x;
@@ -32,9 +32,11 @@ y = [1.0, 2.1];
 
 cons -0.5 y;
 
-(lambda x:List Float. head x) [2.3,3.3]; 
-
 cons 1.0 + 0.5 y;
+
+*/
+
+(lambda x:List Float. head x) [2.3,3.3]; 
 
 [1+2, 3*4, 5];
 
@@ -46,25 +48,14 @@ z=[1@1, 2@2];
 
 head z;
 
-[(1 + 2)@3, (4 * 5)@2, (6 - 7)@3];
-
-[2.5@1, 3.7@1, -0.4@1];
+[1@3 + 2@3, 4@2 * 5@2,6@3 - 7@3];
 
 map=lambda g:Float->Float.
     fix(lambda f:List Float->List Float. lambda l:List Float. 
     if isnil l then [] as List Float else cons (g (head l)) (f (tail l)) ) ;
 
-map ((lambda X<:Float. lambda x:X. x*2.0) [Float])  [2.6,4.8];
+map ((lambda X<:Float. lambda x:X. x*2.0) [Float])  [2.6@1,4.8@2];
 
-["hi","hello"];
-[true, false];
-
-bla = 3;
-[4,bla];
-
-[true];
-
-[] as List Bool;
 
 /*
 cons 2 (cons 3.2 [] as List Int);
