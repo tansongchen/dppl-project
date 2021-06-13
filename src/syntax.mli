@@ -28,6 +28,7 @@ type ty =
   | TyId of string
   | TyFloat
   | TyList of ty
+  | TyAt of ty * int
 
 type term =
     TmAscribe of info * term * ty
@@ -60,6 +61,7 @@ type term =
   | TmIsnil of info * term
   | TmHead of info * term
   | TmTail of info * term
+  | TmAt of info * term * int
 
 type binding =
     NameBind 

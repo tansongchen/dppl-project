@@ -24,6 +24,7 @@ let rec isval ctx t = match t with
   | TmFloat _  -> true
   | TmNil(_,_) -> true
   | TmCons(_,v1,v2) -> if (isval ctx v1) && (isval ctx v2) then true else false
+  | TmAt(_,v1,_) when isval ctx v1 -> true
   | _ -> false
 
 let rec eval1 ctx t = match t with
@@ -150,6 +151,24 @@ let rec eval1 ctx t = match t with
       | EQ(_) -> if i1=i2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
       | LT(_) -> if i1<i2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
   )
+  | TmBinary (fi,op,TmAt(_,TmFloat(_,f1),_),TmAt(_,TmFloat(_,f2),_)) -> ( match op with
+        Plus(_) -> TmAt(fi,TmFloat(fi, f1 +. f2),0)
+      | Minus(_) -> TmAt(fi,TmFloat(fi, f1 -. f2),0)
+      | Times(_) -> TmAt(fi,TmFloat(fi, f1 *. f2),0)
+      | Divide(_) -> TmAt(fi,TmFloat(fi, f1 /. f2),0)
+      | GT(_) -> if f1>f2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
+      | EQ(_) -> if f1=f2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
+      | LT(_) -> if f1<f2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
+  )
+  | TmBinary (fi,op,TmAt(_,TmInt(_,i1),_),TmAt(_,TmInt(_,i2),_)) -> ( match op with
+        Plus(_) -> TmAt(fi,TmInt(fi,i1 + i2),0)
+      | Minus(_) -> TmAt(fi,TmInt(fi,i1 - i2),0)
+      | Times(_) -> TmAt(fi,TmInt(fi,i1 * i2),0)
+      | Divide(_) -> TmAt(fi,TmInt(fi,i1 / i2),0)
+      | GT(_) -> if i1>i2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
+      | EQ(_) -> if i1=i2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
+      | LT(_) -> if i1<i2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
+  )
   | TmBinary(fi,op,(TmFloat(_,i1) as t1),t2) ->
       let t2' = eval1 ctx t2 in
       TmBinary(fi,op,t1,t2')
@@ -178,6 +197,9 @@ let rec eval1 ctx t = match t with
   | TmTail(fi,t1) ->
       let t1' = eval1 ctx t1 in
       TmTail(fi,t1')
+  | TmAt(fi,t1,dis) ->
+      let t1' = eval1 ctx t1 in
+      TmAt(fi,t1',dis)
   | _ -> 
       raise NoRuleApplies
 
@@ -282,6 +304,7 @@ let rec subtype ctx tyS tyT =
         subtype ctx1 tyS2 tyT2
    | (TyList(tyT1), TyList(tyT2)) ->
         subtype ctx tyT1 tyT2
+   | (TyAt(tyT1,_),_) -> subtype ctx tyT1 tyT
    | (_,_) -> 
        false
 
@@ -499,6 +522,8 @@ let rec typeof ctx t =
       (match tyT1 with
         TyList(tyT) -> TyList(tyT)
       | _ -> error fi "not a list")
+  | TmAt(fi,t1,dis) ->
+      let tyT1 = typeof ctx t1 in TyAt(tyT1,dis)
 
 let evalbinding ctx b = match b with
     TmAbbBind(t,tyT) ->

@@ -28,6 +28,7 @@ type ty =
   | TyId of string
   | TyFloat
   | TyList of ty
+  | TyAt of ty * int
 
 type term =
     TmAscribe of info * term * ty
@@ -60,6 +61,7 @@ type term =
   | TmIsnil of info * term
   | TmHead of info * term
   | TmTail of info * term
+  | TmAt of info * term * int
 
 type binding =
     NameBind 
@@ -132,6 +134,7 @@ let tymap onvar c tyT =
   | TyUnit -> TyUnit
   | TyFloat -> TyFloat
   | TyList(tyT1) -> TyList(walk c tyT1)
+  | TyAt(tyT1,dis) -> TyAt(walk c tyT1,dis)
   in walk c tyT
 
 let tmmap onvar ontype c t = 
@@ -171,6 +174,7 @@ let tmmap onvar ontype c t =
   | TmIsnil(fi,t1) -> TmIsnil(fi, walk c t1)
   | TmHead(fi,t1) -> TmHead(fi, walk c t1)
   | TmTail(fi,t1) -> TmTail(fi, walk c t1)
+  | TmAt(fi,t1,dis) -> TmAt(fi,walk c t1,dis)
   in walk c t
 
 let typeShiftAbove d c tyT =
@@ -282,6 +286,7 @@ let tmInfo t = match t with
   | TmIsnil(fi,_) -> fi
   | TmHead(fi,_) -> fi
   | TmTail(fi,_) -> fi
+  | TmAt(fi,_,_) -> fi
 
 (* ---------------------------------------------------------------------- *)
 (* Printing *)
@@ -319,6 +324,7 @@ let rec printty_Type outer ctx tyT = match tyT with
       printty_Type outer ctx1 tyT2;
       cbox()
   | TyList(tyT1) -> pr "List "; printty_AType false ctx tyT1
+  | TyAt(tyT1,dis) -> printty_AType false ctx tyT1; pr " @ "; pr (string_of_int dis)
   | tyT -> printty_ArrowType outer ctx tyT
 
 and proty ctx tyS =
@@ -463,6 +469,12 @@ and printtm_AppTerm outer ctx t = match t with
        obox();
        pr "tail ";
        printtm_ATerm false ctx t1;
+       cbox()
+  | TmAt(_,t1,dis) ->
+       obox();
+       printtm_ATerm false ctx t1;
+       pr " @ ";
+       pr (string_of_int dis);
        cbox()
   | t -> printtm_PathTerm outer ctx t
 

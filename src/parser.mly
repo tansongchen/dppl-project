@@ -281,10 +281,6 @@ ListTerm :
       { fun ctx -> TmNil($1, TyFloat) }
   | CONS AppTerm PathTerm
       { fun ctx -> TmCons($1, $2 ctx, $3 ctx)}
-  | LSQUARE INTV IntList RSQUARE
-      { fun ctx -> TmCons($1, TmInt($2.i, $2.v), $3 ctx) }
-  | LSQUARE FLOATV FloatList RSQUARE
-      { fun ctx -> TmCons($1, TmFloat($2.i, $2.v), $3 ctx) }
   | LSQUARE AppTerm NumList RSQUARE
       { fun ctx -> TmCons($1, $2 ctx, $3 ctx)}
 
