@@ -7,8 +7,9 @@ open Support.Pervasive
 
 exception NoRuleApplies
 
-let rec isnumericval ctx t = match t with
+let isnumeric ctx t = match t with
     TmInt _ -> true
+  | TmFloat _ -> true
   | _ -> false
 
 let rec isval ctx t = match t with
@@ -17,14 +18,12 @@ let rec isval ctx t = match t with
   | TmTAbs(_,_,_,_) -> true
   | TmTrue(_)  -> true
   | TmFalse(_) -> true
-  | t when isnumericval ctx t  -> true
   | TmAbs(_,_,_,_) -> true
   | TmRecord(_,fields) -> List.for_all (fun (l,ti) -> isval ctx ti) fields
   | TmUnit(_)  -> true
-  | TmFloat _  -> true
   | TmNil(_,_) -> true
   | TmCons(_,v1,v2) -> if (isval ctx v1) && (isval ctx v2) then true else false
-  | TmAt(_,v1,_) when isval ctx v1 -> true
+  | TmAt(_,v1,_) when isnumeric ctx v1 -> true
   | _ -> false
 
 let rec eval1 ctx t = match t with
@@ -78,7 +77,7 @@ let rec eval1 ctx t = match t with
   | TmIf(fi,t1,t2,t3) ->
       let t1' = eval1 ctx t1 in
       TmIf(fi, t1', t2, t3)
-  | TmIsZero(_,TmInt(_,v1)) ->
+  | TmIsZero(_,TmAt(_,TmInt(_,v1),_)) ->
       if v1==0 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
   | TmIsZero(fi,t1) ->
       let t1' = eval1 ctx t1 in
@@ -87,9 +86,9 @@ let rec eval1 ctx t = match t with
       (match getbinding fi ctx n with
           TmAbbBind(t,_) -> t 
         | _ -> raise NoRuleApplies)
-  | TmTimesfloat(fi,TmFloat(_,f1),TmFloat(_,f2)) ->
+  | TmTimesfloat(fi,TmAt(_,TmFloat(_,f1),_),TmAt(_,TmFloat(_,f2),_)) ->
       TmFloat(fi, f1 *. f2)
-  | TmTimesfloat(fi,(TmFloat(_,f1) as t1),t2) ->
+  | TmTimesfloat(fi,(TmAt(_,TmFloat(_,f1),_) as t1),t2) ->
       let t2' = eval1 ctx t2 in
       TmTimesfloat(fi,t1,t2') 
   | TmTimesfloat(fi,t1,t2) ->
@@ -107,50 +106,32 @@ let rec eval1 ctx t = match t with
   | TmFix(fi,t1) ->
       let t1' = eval1 ctx t1
       in TmFix(fi,t1')
-  | TmPlus(fi,TmFloat(_,f1),TmFloat(_,f2)) ->
+  | TmPlus(fi,TmAt(_,TmFloat(_,f1),_),TmAt(_,TmFloat(_,f2),_)) ->
       TmFloat(fi, f1 +. f2)
-  | TmPlus(fi,TmInt(_,i1),TmInt(_,i2)) ->
+  | TmPlus(fi,TmAt(_,TmInt(_,i1),_),TmAt(_,TmInt(_,i2),_)) ->
       TmInt(fi,i1 + i2)
-  | TmPlus(fi,(TmFloat(_,f1) as t1),t2) ->
+  | TmPlus(fi,(TmAt(_,TmFloat(_,f1),_) as t1),t2) ->
       let t2' = eval1 ctx t2 in
       TmPlus(fi,t1,t2') 
-  | TmPlus(fi,(TmInt(_,i1) as t1),t2) ->
+  | TmPlus(fi,(TmAt(_,TmInt(_,i1),_) as t1),t2) ->
       let t2' = eval1 ctx t2 in
       TmPlus(fi,t1,t2') 
   | TmPlus(fi,t1,t2) ->
       let t1' = eval1 ctx t1 in
       TmPlus(fi,t1',t2) 
-  | TmGt(fi,TmFloat(_,f1),TmFloat(_,f2)) ->
+  | TmGt(fi,TmAt(_,TmFloat(_,f1),_),TmAt(_,TmFloat(_,f2),_)) ->
       if f1>f2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
-  | TmGt(fi,TmInt(_,i1),TmInt(_,i2)) ->
+  | TmGt(fi,TmAt(_,TmInt(_,i1),_),TmAt(_,TmInt(_,i2),_)) ->
     if i1>i2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
-  | TmGt(fi,(TmFloat(_,f1) as t1),t2) ->
+  | TmGt(fi,(TmAt(_,TmFloat(_,f1),_) as t1),t2) ->
       let t2' = eval1 ctx t2 in
       TmGt(fi,t1,t2') 
-  | TmGt(fi,(TmInt(_,i1) as t1),t2) ->
+  | TmGt(fi,(TmAt(_,TmInt(_,i1),_) as t1),t2) ->
       let t2' = eval1 ctx t2 in
       TmGt(fi,t1,t2') 
   | TmGt(fi,t1,t2) ->
       let t1' = eval1 ctx t1 in
       TmGt(fi,t1',t2)
-  | TmBinary (fi,op,TmFloat(_,f1),TmFloat(_,f2)) -> ( match op with
-        Plus(_) -> TmFloat(fi, f1 +. f2)
-      | Minus(_) -> TmFloat(fi, f1 -. f2)
-      | Times(_) -> TmFloat(fi, f1 *. f2)
-      | Divide(_) -> TmFloat(fi, f1 /. f2)
-      | GT(_) -> if f1>f2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
-      | EQ(_) -> if f1=f2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
-      | LT(_) -> if f1<f2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
-  )
-  | TmBinary (fi,op,TmInt(_,i1),TmInt(_,i2)) -> ( match op with
-        Plus(_) -> TmInt(fi,i1 + i2)
-      | Minus(_) -> TmInt(fi,i1 - i2)
-      | Times(_) -> TmInt(fi,i1 * i2)
-      | Divide(_) -> TmInt(fi,i1 / i2)
-      | GT(_) -> if i1>i2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
-      | EQ(_) -> if i1=i2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
-      | LT(_) -> if i1<i2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
-  )
   | TmBinary (fi,op,TmAt(_,TmFloat(_,f1),_),TmAt(_,TmFloat(_,f2),_)) -> ( match op with
         Plus(_) -> TmAt(fi,TmFloat(fi, f1 +. f2),0)
       | Minus(_) -> TmAt(fi,TmFloat(fi, f1 -. f2),0)
@@ -169,10 +150,10 @@ let rec eval1 ctx t = match t with
       | EQ(_) -> if i1=i2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
       | LT(_) -> if i1<i2 then TmTrue(dummyinfo) else TmFalse(dummyinfo)
   )
-  | TmBinary(fi,op,(TmFloat(_,i1) as t1),t2) ->
+  | TmBinary(fi,op,(TmAt(_,TmFloat(_,i1),_) as t1),t2) ->
       let t2' = eval1 ctx t2 in
       TmBinary(fi,op,t1,t2')
-  | TmBinary(fi,op,(TmInt(_,i1) as t1),t2) ->
+  | TmBinary(fi,op,(TmAt(_,TmInt(_,i1),_) as t1),t2) ->
       let t2' = eval1 ctx t2 in
       TmBinary(fi,op,t1,t2')
   | TmBinary(fi,op,t1,t2) ->
@@ -197,9 +178,11 @@ let rec eval1 ctx t = match t with
   | TmTail(fi,t1) ->
       let t1' = eval1 ctx t1 in
       TmTail(fi,t1')
-  | TmAt(fi,t1,dis) ->
+  | TmAt(fi,t1,dis) when (not (isnumeric ctx t1)) ->
       let t1' = eval1 ctx t1 in
       TmAt(fi,t1',dis)
+  | TmInt(fi,i1) as i -> TmAt(fi,i,0)
+  | TmFloat(fi,f1) as f -> TmAt(fi,f,0)
   | _ -> 
       raise NoRuleApplies
 
@@ -337,7 +320,7 @@ let rec join ctx tyS tyT =
         with Not_found -> TyTop)
   | (TyAt(tyT1,dis1),TyAt(tyT2,dis2)) -> 
         if tyeqv ctx tyT1 tyT2 
-        then TyAt(tyT1,0)
+        then ( if dis1==dis2 then TyAt(tyT1,dis1) else TyAt(tyT1,0) )
         else TyTop
   | _ -> 
       TyTop
