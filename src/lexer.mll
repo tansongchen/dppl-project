@@ -39,6 +39,11 @@ let reservedWords = [
   ("letrec", fun i -> Parser.LETREC i);
   ("plus", fun i -> Parser.PLUS i);
   ("gt", fun i -> Parser.GT i);
+  ("cons", fun i -> Parser.CONS i);
+  ("head", fun i -> Parser.HEAD i);
+  ("tail", fun i -> Parser.TAIL i);
+  ("isnil", fun i -> Parser.ISNIL i);
+  ("List", fun i -> Parser.ULIST i);
   
   (* Symbols *)
   ("_", fun i -> Parser.USCORE i);

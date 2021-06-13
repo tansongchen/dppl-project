@@ -50,6 +50,11 @@ open Syntax
 %token <Support.Error.info> LETREC
 %token <Support.Error.info> PLUS
 %token <Support.Error.info> GT
+%token <Support.Error.info> CONS
+%token <Support.Error.info> HEAD
+%token <Support.Error.info> TAIL 
+%token <Support.Error.info> ISNIL
+%token <Support.Error.info> ULIST
 
 /* Identifier and constant value tokens */
 %token <string Support.Error.withinfo> UCID  /* uppercase-initial */
@@ -264,6 +269,31 @@ Operator :
   | EQ      { fun ctx -> EQ($1) }
   | LT      { fun ctx -> LT($1) }
 
+/* ATYPE : Int Float */
+ListTerm :
+    LSQUARE RSQUARE AS ULIST UINT
+      { fun ctx -> TmNil($1, TyInt) }
+  | LSQUARE RSQUARE AS ULIST UFLOAT
+      { fun ctx -> TmNil($1, TyFloat) }
+  | CONS Number PathTerm
+      { fun ctx -> TmCons($1, $2 ctx, $3 ctx)}
+  | LSQUARE INTV IntList RSQUARE
+      { fun ctx -> TmCons($1, TmInt($2.i, $2.v), $3 ctx) }
+  | LSQUARE FLOATV FloatList RSQUARE
+      { fun ctx -> TmCons($1, TmFloat($2.i, $2.v), $3 ctx) }
+
+IntList :
+    /* empty */
+      { fun ctx -> TmNil(dummyinfo, TyInt) }
+  | COMMA INTV IntList
+      { fun ctx -> TmCons($1, TmInt($2.i, $2.v), $3 ctx)}
+
+FloatList :
+    /* empty */
+      { fun ctx -> TmNil(dummyinfo, TyFloat) }
+  | COMMA FLOATV FloatList
+      { fun ctx -> TmCons($1, TmFloat($2.i, $2.v), $3 ctx)}
+
 AppTerm :
     AppTerm LSQUARE Type RSQUARE
       { fun ctx ->
@@ -290,6 +320,12 @@ AppTerm :
   | FIX PathTerm
       { fun ctx ->
           TmFix($1, $2 ctx) }
+  | HEAD PathTerm
+      { fun ctx -> TmHead($1, $2 ctx) }
+  | TAIL PathTerm
+      { fun ctx -> TmTail($1, $2 ctx) }
+  | ISNIL PathTerm
+      { fun ctx -> TmIsnil($1, $2 ctx) }
   | PathTerm
       { $1 }
 
@@ -301,6 +337,8 @@ PathTerm :
       { fun ctx ->
           TmProj($2, $1 ctx, string_of_int $3.v) }
   | AscribeTerm
+      { $1 }
+  | ListTerm
       { $1 }
 
 FieldTypes :
@@ -347,14 +385,18 @@ ATerm :
       { fun ctx -> TmTrue($1) }
   | FALSE
       { fun ctx -> TmFalse($1) }
-  | INTV
-      { fun ctx -> TmInt($1.i, $1.v) }
+  | Number
+      { fun ctx -> ($1 ctx) }
   | UNIT
       { fun ctx -> TmUnit($1) }
-  | FLOATV
-      { fun ctx -> TmFloat($1.i, $1.v) }
   | INERT LSQUARE Type RSQUARE 
       { fun ctx -> TmInert($1, $3 ctx) }
+
+Number :
+    INTV
+      { fun ctx -> TmInt($1.i, $1.v) }
+  | FLOATV
+      { fun ctx -> TmFloat($1.i, $1.v) }
 
 Fields :
     /* empty */

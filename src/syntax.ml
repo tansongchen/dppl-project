@@ -318,7 +318,7 @@ let rec printty_Type outer ctx tyT = match tyT with
       print_space ();
       printty_Type outer ctx1 tyT2;
       cbox()
-  | TyList(tyT1) -> pr "List "; printty_AType false ctx tyT
+  | TyList(tyT1) -> pr "List "; printty_AType false ctx tyT1
   | tyT -> printty_ArrowType outer ctx tyT
 
 and proty ctx tyS =
@@ -438,14 +438,17 @@ and printtm_AppTerm outer ctx t = match t with
   | TmIsZero(_,t1) ->
        pr "iszero "; printtm_ATerm false ctx t1
   | TmTimesfloat(_,t1,t2) ->
-       pr "timesfloat "; printtm_ATerm false ctx t2; 
+       pr "timesfloat "; printtm_ATerm false ctx t1; 
        pr " "; printtm_ATerm false ctx t2
   | TmPlus(_,t1,t2) ->
-       pr "plus "; printtm_ATerm false ctx t2; 
+       pr "plus "; printtm_ATerm false ctx t1; 
        pr " "; printtm_ATerm false ctx t2
   | TmGt(_,t1,t2) ->
-       pr "gt "; printtm_ATerm false ctx t2; 
+       pr "gt "; printtm_ATerm false ctx t1; 
        pr " "; printtm_ATerm false ctx t2
+  | TmBinary(_,op,t1,t2) ->
+       pr "binary "; printtm_ATerm false ctx t1; 
+       pr " "; printtm_ATerm false ctx t2 
   | TmIsnil(_, t1) ->
        obox();
        pr "isnil ";
