@@ -191,6 +191,10 @@ AType :
   | LCURLY FieldTypes RCURLY
       { fun ctx ->
           TyRecord($2 ctx 1) }
+  | ULIST UINT
+      { fun ctx -> TyList(TyInt) }
+  | ULIST UFLOAT
+      { fun ctx -> TyList(TyFloat) }
   | BOOL
       { fun ctx -> TyBool }
   | UINT
@@ -275,12 +279,21 @@ ListTerm :
       { fun ctx -> TmNil($1, TyInt) }
   | LSQUARE RSQUARE AS ULIST UFLOAT
       { fun ctx -> TmNil($1, TyFloat) }
-  | CONS Number PathTerm
+  | CONS AppTerm PathTerm
       { fun ctx -> TmCons($1, $2 ctx, $3 ctx)}
   | LSQUARE INTV IntList RSQUARE
       { fun ctx -> TmCons($1, TmInt($2.i, $2.v), $3 ctx) }
   | LSQUARE FLOATV FloatList RSQUARE
       { fun ctx -> TmCons($1, TmFloat($2.i, $2.v), $3 ctx) }
+  | LSQUARE AppTerm NumList RSQUARE
+      { fun ctx -> TmCons($1, $2 ctx, $3 ctx)}
+
+NumList :
+    /* empty */
+      { fun ctx -> TmNil(dummyinfo, TyTop) }
+  | COMMA AppTerm NumList
+      { fun ctx -> TmCons($1, $2 ctx, $3 ctx)}
+
 
 IntList :
     /* empty */

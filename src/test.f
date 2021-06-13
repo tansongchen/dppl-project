@@ -8,8 +8,6 @@ let x=plus -3 6 in gt x 5;
 
 plus -3.0 2.1;
 
--3 + 2;
-
 [1,2,3];
 
 [1.0];
@@ -33,3 +31,9 @@ let x=[1,2] in cons 3 x;
 y = [1.0, 2.1];
 
 cons -0.5 y;
+
+(lambda x:List Float. x) [] as List Float;
+
+cons 1.0 + 0.5 y;
+
+[1+2, 3*4, 5];

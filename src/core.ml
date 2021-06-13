@@ -280,6 +280,8 @@ let rec subtype ctx tyS tyT =
         (subtype ctx tyS1 tyT1 && subtype ctx tyT1 tyS1) &&
         let ctx1 = addbinding ctx tyX1 (TyVarBind(tyT1)) in
         subtype ctx1 tyS2 tyT2
+   | (TyList(tyT1), TyList(tyT2)) ->
+        subtype ctx tyT1 tyT2
    | (_,_) -> 
        false
 
@@ -475,9 +477,13 @@ let rec typeof ctx t =
   | TmCons(fi,t1,t2) ->
       let tyT1 = typeof ctx t1 in
       let tyT2 = typeof ctx t2 in
-      (match tyT2 with
-        TyList(tyT) -> if (tyeqv ctx tyT1 tyT) then TyList(tyT) else error fi "list type is not unique"
-      | _ -> error fi "not a list")
+      (match t2 with
+          TmNil(_,ty) -> if (subtype ctx tyT1 ty) then TyList(tyT1) else error fi "list type is not unique"
+        | _ -> (match tyT2 with
+            TyList(tyT) -> if (tyeqv ctx tyT1 tyT) then TyList(tyT) else error fi "list type is not unique"
+          | _ -> error fi "not a list")
+
+      )
   | TmIsnil(fi,t1) ->
       let tyT1 = typeof ctx t1 in
       (match tyT1 with
