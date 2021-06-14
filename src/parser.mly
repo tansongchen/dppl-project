@@ -195,11 +195,11 @@ AType :
   | BOOL
       { fun ctx -> TyBool }
   | UINT
-      { fun ctx -> TyInt }
+      { fun ctx -> TyAt(TyInt,0) }
   | UUNIT
       { fun ctx -> TyUnit }
   | UFLOAT
-      { fun ctx -> TyFloat }
+      { fun ctx -> TyAt(TyFloat,0) }
   | ULIST AType
       { fun ctx -> TyList($2 ctx) }
 

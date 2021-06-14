@@ -87,10 +87,10 @@ let rec eval1 ctx t = match t with
           TmAbbBind(t,_) -> t 
         | _ -> raise NoRuleApplies)
   | TmTimesfloat(fi,TmAt(_,TmFloat(_,f1),_),TmAt(_,TmFloat(_,f2),_)) ->
-      TmFloat(fi, f1 *. f2)
+      TmAt(fi,TmFloat(fi, f1 *. f2),0)
   | TmTimesfloat(fi,(TmAt(_,TmFloat(_,f1),_) as t1),t2) ->
       let t2' = eval1 ctx t2 in
-      TmTimesfloat(fi,t1,t2') 
+      TmTimesfloat(fi,t1,t2')
   | TmTimesfloat(fi,t1,t2) ->
       let t1' = eval1 ctx t1 in
       TmTimesfloat(fi,t1',t2) 
@@ -107,9 +107,9 @@ let rec eval1 ctx t = match t with
       let t1' = eval1 ctx t1
       in TmFix(fi,t1')
   | TmPlus(fi,TmAt(_,TmFloat(_,f1),_),TmAt(_,TmFloat(_,f2),_)) ->
-      TmFloat(fi, f1 +. f2)
+      TmAt(fi,TmFloat(fi, f1 +. f2),0)
   | TmPlus(fi,TmAt(_,TmInt(_,i1),_),TmAt(_,TmInt(_,i2),_)) ->
-      TmInt(fi,i1 + i2)
+      TmAt(fi,TmInt(fi,i1 + i2),0)
   | TmPlus(fi,(TmAt(_,TmFloat(_,f1),_) as t1),t2) ->
       let t2' = eval1 ctx t2 in
       TmPlus(fi,t1,t2') 
@@ -288,7 +288,7 @@ let rec subtype ctx tyS tyT =
         subtype ctx1 tyS2 tyT2
    | (TyList(tyT1), TyList(tyT2)) ->
         subtype ctx tyT1 tyT2
-   | (TyAt(tyT1,_),_) -> subtype ctx tyT1 tyT
+   | (TyAt(tyT1,dis1),TyAt(tyT2,dis2)) -> (subtype ctx tyT1 tyT2) && dis2 = 0
    | (_,_) -> 
        false
 
@@ -437,38 +437,45 @@ let rec typeof ctx t =
   | TmInt _ ->
       TyInt
   | TmIsZero(fi,t1) ->
-      if subtype ctx (typeof ctx t1) TyInt then TyBool
+      if subtype ctx (typeof ctx t1) (TyAt(TyInt,0)) then TyBool
       else error fi "argument of iszero is not a number"
   | TmUnit(fi) -> TyUnit
   | TmFloat _ -> TyFloat
   | TmTimesfloat(fi,t1,t2) ->
-      if subtype ctx (typeof ctx t1) TyFloat
-      && subtype ctx (typeof ctx t2) TyFloat then TyFloat
-      else error fi "argument of timesfloat is not a number"
+      let tyT1 = typeof ctx t1 in
+      let tyT2 = typeof ctx t2 in
+      let tyB = join ctx tyT1 tyT2 in
+      if subtype ctx tyB (TyAt(TyFloat,0)) 
+        then tyB 
+        else error fi "argument of timesfloat is not a number"
   | TmPlus(fi,t1,t2) ->
-      if subtype ctx (typeof ctx t1) TyFloat
-      && subtype ctx (typeof ctx t2) TyFloat then TyFloat
-      else if subtype ctx (typeof ctx t1) TyInt
-        && subtype ctx (typeof ctx t2) TyInt then TyInt
-      else error fi "argument of plus is not a number"
+      let tyT1 = typeof ctx t1 in
+      let tyT2 = typeof ctx t2 in
+      let tyB = join ctx tyT1 tyT2 in
+      if subtype ctx tyB (TyAt(TyFloat,0)) || subtype ctx tyB (TyAt(TyInt,0))
+        then tyB 
+        else error fi "argument of plus is not a number"
   | TmGt(fi,t1,t2) ->
-      if subtype ctx (typeof ctx t1) TyFloat
-      && subtype ctx (typeof ctx t2) TyFloat then TyBool
-      else if subtype ctx (typeof ctx t1) TyInt
-        && subtype ctx (typeof ctx t2) TyInt then TyBool
-      else error fi "argument of gt is not a number"
+      let tyT1 = typeof ctx t1 in
+      let tyT2 = typeof ctx t2 in
+      let tyB = join ctx tyT1 tyT2 in
+      if subtype ctx tyB (TyAt(TyFloat,0)) || subtype ctx tyB (TyAt(TyInt,0))
+        then TyBool
+        else error fi "argument of gt is not a number"
   | TmBinary(fi,op,t1,t2) -> ( match op with
       Plus(_)|Minus(_)|Times(_)|Divide(_) ->
-        if subtype ctx (typeof ctx t1) TyFloat
-          && subtype ctx (typeof ctx t2) TyFloat then TyFloat
-          else if subtype ctx (typeof ctx t1) TyInt
-            && subtype ctx (typeof ctx t2) TyInt then TyInt
+        let tyT1 = typeof ctx t1 in
+        let tyT2 = typeof ctx t2 in
+        let tyB = join ctx tyT1 tyT2 in
+        if subtype ctx tyB (TyAt(TyFloat,0)) || subtype ctx tyB (TyAt(TyInt,0))
+          then tyB 
           else error fi "argument of plus/minus/times/divide is not a number"
     | GT(_)|EQ(_)|LT(_) ->
-        if subtype ctx (typeof ctx t1) TyFloat
-          && subtype ctx (typeof ctx t2) TyFloat then TyBool
-          else if subtype ctx (typeof ctx t1) TyInt
-            && subtype ctx (typeof ctx t2) TyInt then TyBool
+        let tyT1 = typeof ctx t1 in
+        let tyT2 = typeof ctx t2 in
+        let tyB = join ctx tyT1 tyT2 in
+        if subtype ctx tyB (TyAt(TyFloat,0)) || subtype ctx tyB (TyAt(TyInt,0))
+          then TyBool
           else error fi "argument of gt/eq/lt is not a number"
   )
   | TmLet(fi,x,t1,t2) ->
