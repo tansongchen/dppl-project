@@ -69,3 +69,6 @@ cons 2 (cons 3.2 [] as List Int);
 cons (lambda x:Float. x*2.0) [] as List Float;
 */
 
+[(2*4@6)@3,1@3];
+
+((2@3+3)@2*2)@5;

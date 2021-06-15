@@ -178,6 +178,8 @@ let rec eval1 ctx t = match t with
   | TmTail(fi,t1) ->
       let t1' = eval1 ctx t1 in
       TmTail(fi,t1')
+  | TmAt(fi,TmAt(_,t2,_),dis) ->
+      TmAt(fi,t2,dis)
   | TmAt(fi,t1,dis) when (not (isnumeric ctx t1)) ->
       let t1' = eval1 ctx t1 in
       TmAt(fi,t1',dis)
@@ -520,7 +522,12 @@ let rec typeof ctx t =
         TyList(tyT) -> TyList(tyT)
       | _ -> error fi "not a list")
   | TmAt(fi,t1,dis) ->
-      let tyT1 = typeof ctx t1 in TyAt(tyT1,dis)
+      let rec f tyT = (
+        match  tyT with
+          TyAt(tyT2,_) -> f tyT2
+        | _ -> tyT
+      ) in
+      let tyT1 = typeof ctx t1 in TyAt((f tyT1),dis)
 
 let evalbinding ctx b = match b with
     TmAbbBind(t,tyT) ->
