@@ -1,0 +1,3 @@
+[submodule "mpi"]
+	path = mpi
+	url = https://github.com/xavierleroy/ocamlmpi

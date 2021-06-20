@@ -10,6 +10,10 @@ open Support.Pervasive
 open Support.Error
 open Syntax
 open Core
+open Mpi
+
+let size = comm_size comm_world
+let rank = comm_rank comm_world
 
 let searchpath = ref [""]
 
@@ -48,8 +52,6 @@ let parseFile inFile =
 in
   Parsing.clear_parser(); close_in pi; result
 
-let alreadyImported = ref ([] : string list)
-
 let checkbinding fi ctx b = match b with
     NameBind -> NameBind
   | TyVarBind(tyS) -> TyVarBind(tyS)
@@ -71,53 +73,53 @@ let prbindingty ctx b = match b with
          None -> printty ctx (typeof ctx t)
        | Some(tyT) -> printty ctx tyT)
 
-let rec process_file f ctx =
-  if List.mem f (!alreadyImported) then
-    ctx
-  else (
-    alreadyImported := f :: !alreadyImported;
-    let cmds,_ = parseFile f ctx in
-    let g ctx c =  
-      open_hvbox 0;
-      let results = process_command ctx c in
-      print_flush();
-      results
-    in
-      List.fold_left g ctx cmds)
 
-and process_command ctx cmd = match cmd with
-    Import(f) -> 
-      process_file f ctx
-  | Eval(fi,t) -> 
+let rec fetch_print ctx t =
+  match t with
+    TmAt(_, _, 0) | TmNil(_, _) -> if rank = 0 then printtm_ATerm true ctx t else ()
+  | TmAt(_, _, p) ->
+      if rank = 0
+        then let t' = receive p 0 comm_world in printtm_ATerm true ctx t'
+        else if rank = p then send t 0 0 comm_world else ()
+  | TmCons(_, v1, v2) -> fetch_print ctx v1; if rank = 0 then pr " :: " else (); fetch_print ctx v2;
+  | _ -> if rank = 0 then printtm_ATerm true ctx t else ()
+
+let process_command ctx cmd = 
+  match cmd with
+    Eval(fi,t) -> 
+      (* pr "Eval start"; *)
       let tyT = typeof ctx t in
+      (* pr "Type checking finished"; *)
+      (* printtm_ATerm true ctx t; *)
       let t' = eval ctx t in
-      printtm_ATerm true ctx t'; 
+      (* pr "Eval finished"; *)
+      (* printtm_ATerm true ctx t';  *)
+      fetch_print ctx t';
+      if rank = 0 then (
       print_break 1 2;
       pr ": ";
       printty ctx tyT;
-      force_newline();
+      force_newline()
+      ) else ();
       ctx
   | Bind(fi,x,bind) -> 
       let bind = checkbinding fi ctx bind in
       let bind' = evalbinding ctx bind in
-      pr x; pr " "; prbindingty ctx bind'; force_newline();
+      if rank = 0 then (
+      pr x; pr " "; prbindingty ctx bind'; force_newline()
+      ) else ();
       addbinding ctx x bind'
-  | SomeBind(fi,tyX,x,t) ->
-     let tyT = typeof ctx t in
-     (match lcst ctx tyT with
-        TySome(_,tyBound,tyBody) ->
-          let t' = eval ctx t in
-          let b = match t' with
-                    TmPack(_,_,t12,_) -> (TmAbbBind(termShift 1 t12,Some(tyBody)))
-                  | _ -> VarBind(tyBody) in
-          let ctx1 = addbinding ctx tyX (TyVarBind tyBound) in
-          let ctx2 = addbinding ctx1 x b in
-          
-          pr tyX; force_newline();
-          pr x; pr " : "; printty ctx1 tyBody; force_newline();
-          ctx2
-      | _ -> error fi "existential type expected")
-  
+
+let process_file f ctx =
+  let cmds,_ = parseFile f ctx in
+  let g ctx c =  
+    open_hvbox 0;
+    let results = process_command ctx c in
+    print_flush();
+    results
+  in
+    List.fold_left g ctx cmds
+
 let main () = 
   let inFile = parseArgs() in
   let _ = process_file inFile emptycontext in

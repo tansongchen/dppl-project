@@ -24,34 +24,25 @@ DEPEND += lexer.ml parser.ml
 # typechecker, after building everything that it depends on
 all: $(DEPEND) $(OBJS) f
 
-# On a Windows machine, we do exactly the same except that the executable
-# file that gets built needs to have the extension ".exe"
-windows: $(DEPEND) $(OBJS) f.exe
-
 # Include an automatically generated list of dependencies between source files
 include .depend
 
 # Build an executable typechecker
 f: $(OBJS) main.cmo 
 	@echo Linking $@
-	ocamlc -o $@ $(COMMONOBJS) $(OBJS) 
-
-# Build an executable typechecker for Windows
-f.exe: $(OBJS) main.cmo 
-	@echo Linking $@
-	ocamlc -o $@ $(COMMONOBJS) $(OBJS) 
+	ocamlfind ocamlc -package mpi -linkpkg -o $@ $(COMMONOBJS) $(OBJS) 
 
 # Build and test
 test: all
-	./f test.f
+	mpiexec -n 5 ./f test.f
 
 # Compile an ML module interface
 %.cmi : %.mli
-	ocamlc -c $<
+	ocamlfind ocamlc -package mpi -c $<
 
 # Compile an ML module implementation
 %.cmo : %.ml
-	ocamlc -c $<
+	ocamlfind ocamlc -package mpi -c $<
 
 # Generate ML files from a parser definition file
 parser.ml parser.mli: parser.mly

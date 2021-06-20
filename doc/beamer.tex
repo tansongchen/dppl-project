@@ -88,15 +88,23 @@
 \usepackage{amsmath}
 \DeclareMathOperator*{\argmax}{arg\,max}
 \DeclareMathOperator*{\argmin}{arg\,min}
-\usepackage{mathspec}
+
 \usepackage{fontspec}
 \usepackage{newunicodechar}
 \setmonofont{Consolas}
-\setmathtt{Consolas}
 \newfontfamily{\fallbackfont}{Menlo}[Scale=MatchLowercase]
 \DeclareTextFontCommand{\textfallback}{\fallbackfont}
 \newunicodechar{∀}{\textfallback{∀}}
+
+\usepackage{mathastext}
+\MTfamily{\ttdefault}\Mathastext % reload, but use \ttdefault
+
 \usepackage{booktabs}
+\newcommand{\ty}{{:}}
+\newcommand{\su}{{<:}}
+\newcommand{\at}{\texttt{@}}
+\newcommand{\tlb}{\texttt{[}}
+\newcommand{\trb}{\texttt{]}}
 
 % \newunicodechar{ϱ}{\textfallback{ϱ}}
 \begin{document}
@@ -145,75 +153,198 @@ Bounded quantification make some assumptions about the universal type \verb|X|, 
 \begin{example}
     \verb|  f = λX<:{a:Nat}. λx:X. {asucc=succ(x.a)}|
     \\
-    \verb|▸ f : ∀X<:{a:Nat}. X → {asucc:Nat}|
+    \verb|▸ f : ∀X<:{a:Nat}. X -> {asucc:Nat}|
 \end{example}
 
-We base our language on pure $\mathsf{F_{<:}}$ (on TAPL page 392) with basic types (string, record, boolean, natural numbers and floating point numbers) and features (ascribing, existential types, let-binding and fix).
+We base our language on pure $\mathsf{F_{<:}}$ (on TAPL page 392) with basic types (string, record, boolean, integers and floating points) and features (list, ascribing, existential types, let-binding and fix).
 
-For simplicity here, we only show our extensions above this, but the full definition is available in our later report.
+The full definition is available in our later report.
 
 \end{frame}
 
 \section{Formalities}
 
 \begin{frame}[fragile]
-    \frametitle{Syntax}
+  \frametitle{Syntax (1)}
+  \centering
+  \begin{tabular}{llr}
+      t ::= &  & terms: \\
+      & $x$ & \textit{variable} \\
+      & $l$ & \textit{literal} \\
+      & $t~\at~p$ & \textit{distribution} \\
+      & $if~t~then~t~else~t$ & \textit{condition} \\
+      & $t~o~t$ & \textit{binary expression} \\
+      & $\texttt{λ}x\ty T.t$ & \textit{abstraction} \\
+      & $t~t$ & \textit{applicaton} \\
+      & $\texttt{λ}X\su T.t$ & \textit{type abstraction} \\
+      & $t~\tlb T\trb$ & \textit{type applicaton} \\
+      & $fix~t$ & \textit{fix} \\
+      & $t~as~T$ & \textit{ascription} \\
+      & $cons~t~t$ & \textit{list constructor} \\
+      & $isnil~t$ & \textit{test for empty list} \\
+      & $hd~t$ & \textit{head of a list} \\
+      & $tl~t$ & \textit{tail of a list} \\
+  \end{tabular}
+
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Syntax (2)}
+  \centering
+  \begin{tabular}{llr}
+      l ::= &  & literals: \\
+      & $\mathtt{\cdots, -1, 0, 1, \cdots}$ & \textit{il} \\
+      & $\mathtt{1.0, 2.5, 3.14159, \cdots}$ & \textit{fl} \\
+      & $\texttt{"hello"}$ & \textit{sl} \\
+      & $true, false$ & \textit{bl} \\
+      & $unit$ & \textit{ul} \\
+      & $\texttt{[]}~as~List~T$ & \textit{ll} \\
+      & $\mathtt{\tlb t_1, t_2, \cdots\trb}$ & \textit{ll} \\
+      o ::= & \verb|+, -, *, /, <, =, >| & operators \\
+      v ::= &  & values: \\
+      & $\texttt{λ}x\ty T.t$ & \textit{abstraction value} \\
+      & $\texttt{λ}X\su T.t$ & \textit{type abstraction value} \\
+      & $\texttt{(il|fl|sl|bl|ul) @ p}$ & \textit{distribution value} \\
+      & $\mathtt{\tlb v_1, v_2, \cdots\trb}$ & \textit{list value} \\
+      p ::= & $\mathtt{0, 1, 2, \cdots}$ & positions \\
+  \end{tabular}
+
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Syntax (3)}
+  \centering
+  \begin{tabular}{llr}
+      T ::= &  & types: \\
+      & $X$ & \textit{type variable} \\
+      & $Top$ & \textit{maximum type} \\
+      & $T\to T$ & \textit{maximum type} \\
+      & $\texttt{∀}X\su T.T$ & \textit{universal type} \\
+      & $T\texttt{ @ }p$ & \textit{distribution type} \\
+      & $List~T$ & \textit{list type} \\ 
+      & $Int, Float, Bool, String, Unit$ & \textit{base types} \\
+  \end{tabular}
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{Subtyping \fbox{$\texttt{Γ} \vdash S <: T$} and Typing \fbox{$\texttt{Γ} \vdash t : T$}}
+
+  We omit subtyping and typing rules from purefsub and common extensions like ascription, conditional, let, fix and lists.
+  
+  \begin{equation}
+      \mathtt{\texttt{Γ} \vdash T\texttt{ @ }l <: T}
+      \tag{\textsc{S-Dist}}
+      \label{sdist}
+  \end{equation}
+
+  \begin{equation}
+    \frac{\mathtt{\texttt{Γ} \vdash t : T}}{\mathtt{\texttt{Γ} \vdash t \texttt{ @ } l : T \texttt{ @ } l}}
+    \tag{\textsc{T-Dist}}
+    \label{tdist}
+  \end{equation}
+
+  \begin{equation}
+    \frac{\mathtt{\texttt{Γ} \vdash t_1 : T,\texttt{Γ} \vdash t_2 : T, T = (Int|Float)}}{\mathtt{\texttt{Γ} \vdash t_1~(+|-|*|/)~t_2 : T}}
+    \tag{\textsc{T-Binary1}}
+    \label{tbinary1}
+  \end{equation}
+
+  \begin{equation}
+    \frac{\mathtt{\texttt{Γ} \vdash t_1 : T,\texttt{Γ} \vdash t_2 : T, T = (Int|Float)}}{\mathtt{\texttt{Γ} \vdash t_1~(>|=|<)~t_2 : Bool}}
+    \tag{\textsc{T-Binary2}}
+    \label{tbinary2}
+  \end{equation}
+
+  \begin{equation}
+      \frac{\mathtt{\texttt{Γ} \vdash t_i : T}}{\mathtt{\texttt{Γ} \vdash [t_1, t_2, \cdots] : List~T}}
+      \tag{\textsc{T-List}}
+      \label{tlist}
+  \end{equation}
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{Evaluation \fbox{$t \longrightarrow t'$}}
+  
+  We omit evaluation rules from purefsub and common extensions like ascription, conditional, let, fix and lists.
+  
+  \begin{equation}
+    \frac{t \longrightarrow t'}{t\texttt{ @ }p\longrightarrow t'\texttt{ @ }p}
+  \tag{\textsc{E-At}}
+  \label{eat}
+  \end{equation}
+
+  \begin{equation}
+    l \longrightarrow l\texttt{ @ }p
+  \tag{\textsc{E-Scatter}}
+  \label{escatter}
+  \end{equation}
+
+  \begin{equation}
+    l\texttt{ @ }p\texttt{ @ }q \longrightarrow l\texttt{ @ }q
+  \tag{\textsc{E-Move}}
+  \label{emove}
+  \end{equation}
+
+  \begin{equation}
+    t_1~o~t_2 \longrightarrow \textrm{equivalence in OCaml}
+  \tag{\textsc{E-Binary}}
+  \label{ebinary}
+  \end{equation}
+
+  \begin{equation}
+    \frac{\texttt{Γ} \vdash v : T \texttt{@} l}{(\texttt{λ} X <: T. \texttt{λ} x : X . t) v \longrightarrow [X \mapsto T \texttt{@} l, x \mapsto v] t}
+    \tag{\textsc{E-Sugar}}
+    \label{esugar}
+  \end{equation}
+  
+  \end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Implementation Details of Evaluation}
+
+  The internal binding to MPI is not relevant to our central topic, but it may be interesting to talk about.
+
+\begin{example}
+\verb|mpiexec -n 8 ./f test.f|
+\end{example}
+
+  \begin{enumerate}
+    \item In the typing stage, one of the processor computes the type;
+    \item At the beginning of the evaluation stage, each processor obtains the same AST;
+    \item At each evaluation step, each processor
+    \begin{enumerate}
+      \item gives a dummy value if this evaluation is irrelevant to it;
+      \item computes the actual value if this evaluation is relevant, and depending on the situation, fetch data from other processes.
+    \end{enumerate}
+  \end{enumerate}
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{Related Attempts}
+
+  It is also possible to define a parallelization scheme with a light-weight multithreading spawn/join style.
+  \begin{block}{Syntax, Typing and Evaluation}
     \centering
-    \begin{tabular}{llr}
-        t ::= & ... & terms: \\
-        & $\mathtt{t @ l}$ & distribution \\
-        & $\mathtt{[t_i]}$ & list \\
-        & $\mathtt{[t_i] @ [l_i]}$ & distribution list \\
-        & & \\
-        v ::= & ... & values: \\
-        & $\mathtt{v @ l}$ & distribution value \\
-        & $\mathtt{[v_i]}$ & list value \\
-        & $\mathtt{[v_i] @ [l_i]}$ & distribution list value \\
-        & & \\
-        T ::= & ... & types: \\
-        & $\mathtt{T @ l}$ & distribution type \\
-        & List T & list type \\
-        & & \\
-    \end{tabular}
-
-    Furthermore, \verb|+, -, *, /, <, =, >| are defined for Nat and Float. 
-
-\end{frame}
-
-\begin{frame}
-    \frametitle{Evaluation \fbox{\texttt{t → t'}}}
-
-    Similar to pure fsub, but we add some syntactic sugars
-
-    \begin{equation}
-        \frac{\mathtt{\texttt{Γ} \vdash v : T @ l}}{\mathtt{(\lambda X <: T. \lambda x : X . t) v \to [X \mapsto T @ l, x \mapsto v] t}}
-        \tag{\textsc{E-Sugar}}
-    \end{equation}
-
-\end{frame}
-
-\begin{frame}
-    \frametitle{Subtyping \fbox{$\mathtt{\texttt{Γ} \vdash S <: T}$}}
-
-    \begin{equation}
-        \mathtt{\texttt{Γ} \vdash T @ l <: T}
-        \tag{\textsc{S-Dist}}
-    \end{equation}
-
-\end{frame}
-
-\begin{frame}
-    \frametitle{Typing Rule}
-
-    \begin{equation}
-        \frac{\mathtt{\texttt{Γ} \vdash t : T}}{\mathtt{\texttt{Γ} \vdash t @ l : T @ l}}
-        \tag{\textsc{T-Dist}}
-    \end{equation}
-
-    \begin{equation}
-        \frac{\mathtt{\texttt{Γ} \vdash t_i : T}}{\mathtt{\texttt{Γ} \vdash [t_i] : List~T}}
-        \tag{\textsc{T-List}}
-    \end{equation}
+  \begin{tabular}{ll}
+    t ::= & ..., \texttt{spawn t}, \texttt{join t}, \texttt{domain [T]} \\
+    v ::= & ..., $\mathtt{domain_t}$ \\
+    T ::= & ..., \texttt{Domain T} \\
+  \end{tabular}
+    $$
+      \frac{\texttt{Γ}\vdash t:Unit\to T}{\texttt{Γ}\vdash spawn~t:Domain~T}\quad
+      \frac{\texttt{Γ}\vdash t:Domain~T}{\texttt{Γ}\vdash join~t:T}
+    $$
+    $$
+      spawn~\texttt{λ}x.t\longrightarrow domain_t\quad join~domain_t\longrightarrow t
+    $$
+    $$
+      \frac{t\longrightarrow t'}{spawn~t\longrightarrow spawn~t'}\quad
+      \frac{t\longrightarrow t'}{join~t\longrightarrow join~t'}
+    $$
+  \end{block}
 
 \end{frame}
 
@@ -222,24 +353,61 @@ For simplicity here, we only show our extensions above this, but the full defini
     \frametitle{Preservation}
 
     \begin{theorem}[Preservation]
-        
+      \upshape
+      If $\texttt{Γ}\vdash t : T$ and $t\longrightarrow t'$, then $\texttt{Γ}\vdash t' : T$.
     \end{theorem}
+    \begin{proof}
+      By induction on a derivation of $\texttt{Γ}\vdash t : T$, paying attention to:
+      \begin{itemize}
+        \item \ref{sdist}
+        \item \ref{tdist}
+        \item \ref{tbinary1}
+        \item \ref{tbinary2}
+      \end{itemize}
+    \end{proof}
 
+    The full proof is available in our report.
 \end{frame}
 \begin{frame}
     \frametitle{Progress}
 
     \begin{theorem}[Progress]
-        
+      \upshape
+      If $t$ is a closed, well-typed term, then either $t$ is a
+      value or else there is some $t'$ with $t\longrightarrow t'$.
     \end{theorem}
+    \begin{proof}
+      By induction on a derivation of $\texttt{Γ}\vdash t : T$, paying attention to:
+      \begin{itemize}
+        \item \ref{sdist}
+        \item \ref{tdist}
+        \item \ref{tbinary1}
+        \item \ref{tbinary2}
+      \end{itemize}
+    \end{proof}
+
+    The full proof is available in our report.
 
 \end{frame}
 \begin{frame}
-    \frametitle{Problem Solving}
+  \frametitle{Problem Solving}
 
-    \begin{theorem}[Distribution Invariance]
-        
-    \end{theorem}
+  \begin{theorem}[Distribution Invariance]
+    \upshape
+    Suppose a function $f: \texttt{∀}X_i. (X_1\su T_1)\to (X_2\su T_2)\to\cdots (X_n\su T_n)$ is defined in this language, where $T_i$ are types of ``distributable'' data, then $f$ gives the same output regardless of the input types (i.e. positions).
+  \end{theorem}
+  \begin{proof}
+    By induction on both the number of arguments and the evaluation process, paying attention to:
+    \begin{itemize}
+      \item \ref{ebinary}
+      \item \ref{eat}
+      \item \ref{emove}
+      \item \ref{escatter}
+      \item \ref{esugar}
+    \end{itemize}
+  \end{proof}
+
+  The full proof is available in our report.
 
 \end{frame}
 \section{Examples}
@@ -250,23 +418,23 @@ For simplicity here, we only show our extensions above this, but the full defini
 \begin{example}[Distribution Types]
     \verb|  a = 1 @ 1|
     \\
-    \verb|▸ a : Nat @ 1|
+    \verb|▸ a : Int @ 1|
     \\
     \verb|  b = 2 @ 2|
     \\
-    \verb|▸ b : Nat @ 2|
+    \verb|▸ b : Int @ 2|
     \\
     \verb|  b' = 2|
     \\
-    \verb|▸ b' : Nat @ 7|
+    \verb|▸ b' : Int @ 7|
     \\
-    \verb|  list = [4, 5, 6] @ [4, 5, 6]|
+    \verb|  list = [4 @ 4, 5 @ 5, 6 @ 6]|
     \\
-    \verb|▸ list : List Nat|
+    \verb|▸ list : List Int|
     \\
     \verb|  autolist = [7, 8, 9, 10]|
     \\
-    \verb|▸ autolist : List Nat|
+    \verb|▸ autolist : List Int|
 \end{example}
 
 \end{frame}
@@ -274,52 +442,48 @@ For simplicity here, we only show our extensions above this, but the full defini
 \begin{frame}[fragile]
     \frametitle{II. Built-in Polymorphic Functions}
 
-    \begin{example}[Built-in Polymorphic Functions]
-        \verb|▸ + : ∀X<:Nat. ∀Y<:Nat. X -> Y -> Nat|
-        \verb|▸ > : ∀X<:Nat. ∀Y<:Nat. X -> Y -> Bool|
-        \verb|  c = + a b @ 3|
+    \begin{example}[Built-in Polymorphic Operators]
+        \verb|  c = a + b @ 3|
         \\
-        \verb|▸ c : Nat @ 3|
+        \verb|▸ c : Int @ 3|
         \\
-        \verb|  t = > b a|
+        \verb|  t = b > a|
         \\
         \verb|▸ t : Bool @ 2|
     \end{example}
 
 \end{frame}
 \begin{frame}[fragile]
-    \frametitle{User-defined Polymorphic Functions}
-\begin{example}[Built-in Polymorphic Functions]
-    \verb|▸ + : ∀X<:Nat. ∀Y<:Nat. X -> Y -> Nat|
-    \verb|▸ > : ∀X<:Nat. ∀Y<:Nat. X -> Y -> Bool|
-    \verb|  square = λX<:Nat. λx:X. times x x|
+    \frametitle{III. User-defined Polymorphic Functions}
+\begin{example}[User-defined Polymorphic Functions]
+    \verb|  square = λX<:Int. λx:X. x * x|
     \\
-    \verb|▸ square : ∀X<:Nat. X -> Nat|
+    \verb|▸ square : ∀X<:Int. X -> Int|
     \\
-    \verb|  min = λX<:Nat. λY<:Nat. λx:X. λy:Y.|
+    \verb|  min = λX<:Int. λY<:Int. λx:X. λy:Y.|
     \\
-    \verb|     if (greater x y) then y else x|
+    \verb|        if (x > y) then y else x|
     \\
-    \verb|▸ min : ∀X<:Nat. ∀Y<:Nat. X -> Y -> Nat|
+    \verb|▸ min : ∀X<:Int. ∀Y<:Int. X -> Y -> Int|
 \end{example}
 
 \end{frame}
 
 \begin{frame}[fragile]
-    \frametitle{User-defined Functional}
+    \frametitle{IV. User-defined Functional}
 
-    \begin{example}[Built-in Polymorphic Functions]
+    \begin{example}[User-defined Functional]
         \verb|▸ map : ∀X. ∀Y. (X -> Y) -> List X -> List Y|
         \\
         \verb|▸ reduce : ∀X. (X -> X -> X) -> List X -> X -> X|
         \\
-        \verb|  squared_list = map [Nat] [Nat] square list|
+        \verb|  squared_list = map [Int] [Int] square list|
         \\
-        \verb|▸ squared_list : List Nat|
+        \verb|▸ squared_list : List Int|
         \\
-        \verb|  value = reduce [Nat] min autolist 0|
+        \verb|  value = reduce [Int] min autolist 0|
         \\
-        \verb|▸ value : Nat|
+        \verb|▸ value : Int|
     \end{example}    
 
 \end{frame}
@@ -330,7 +494,10 @@ For simplicity here, we only show our extensions above this, but the full defini
     \frametitle{Summary}
   
     \begin{itemize}
-      \item 
+      \item Reviewed system $F_{<:}$ and its properties
+      \item Designed and implemented a language based on system $F_{<:}$ that can abstract distribution with type systems and eventually compiles to MPI
+      \item Proved the soundness of such a language
+      \item Provided concrete examples
     \end{itemize}
 
 \end{frame}
@@ -345,7 +512,11 @@ For simplicity here, we only show our extensions above this, but the full defini
 \end{frame}
 
 \begin{frame}
-\frametitle{Discussion}
+\frametitle{Acknowledgement}
+
+We together carried out the formal definitions; Wang implemented the lexer and parser; Zhu implemented the type checker and evaluator; Tan implemented the binding to MPI and made this beamer slide.
+
+We thank Prof. Hu, Zhao and Xiong for guidance.
 
 \end{frame}
 

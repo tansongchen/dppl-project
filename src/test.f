@@ -1,12 +1,12 @@
 /* Examples for testing */
 
-timesfloat -2.0 3.14159;
+x ~ true;
 
-let x=true in x;
+y ~ (-3 + 6);
 
-let x=plus -3 6 in gt x 5;
+y > 5;
 
-plus -3.0 2.1;
+-3.0 + 2.1;
 
 [1,2,3];
 
@@ -20,21 +20,23 @@ tail [2.1, 2.3, 3.5, 8.7];
 
 isnil [1.0];
 
-isnil [] as List Int;
+isnil Int [];
 
-let x=[1,2,3] in tail x;
+z ~ [1,2,3];
 
-cons 1 [2,5,8];
+tail z;
 
-let x=[1,2] in cons 3 (cons 4 x);
+1 :: [2,5,8];
 
-y = [1.0, 2.1];
+x ~ [1,2];
 
-cons -0.5 y;
+(3 :: (4 :: x));
 
-cons 1.0 + 0.5 y;
+y ~ [1.0, 2.1];
 
+-0.5 :: y;
 
+1.0 + 0.5 :: y;
 
 (lambda x:List Float. head x) [2.3,3.3]; 
 
@@ -44,31 +46,18 @@ cons 1.0 + 0.5 y;
 
 10.0 @ 3;
 
-z=[1@1, 2@2];
+z ~ [1@1, 2@2];
 
 head z;
 
 [1 + 2@3, 4@2 * 5,6@3 - 7@3];
 
-/*
-map=lambda g:Float->Float.
-    fix(lambda f:List Float->List Float. lambda l:List Float. 
-    if isnil l then [] as List Float else cons (g (head l)) (f (tail l)) ) ;
-
-map ((lambda X<:Float. lambda x:X. x*2.0) [Float])  [2.6@1,4.8@2];
-*/
-map=lambda X. lambda Y. lambda g:X->Y.
+map ~ lambda X. lambda Y. lambda g:X->Y.
     fix(lambda f:List X->List Y. lambda l:List X. 
-    if isnil l then [] as List Y else cons (g (head l)) (f (tail l)) ) ;
+    if isnil l then Y [] else (g (head l)) :: (f (tail l)) ) ;
 
-map [Float] [Float] ((lambda X<:Float. lambda x:X. x*2.0) [Float])  [2.6@1,4.8@2];
+map [Float] [Float] (lambda x:Float. x*2.0)  [2.6@1,4.8@2];
 
-/*
-cons 2 (cons 3.2 [] as List Int);
+[(2*4@2)@3,1@3];
 
-cons (lambda x:Float. x*2.0) [] as List Float;
-*/
-
-[(2*4@6)@3,1@3];
-
-((2@3+3)@2*2)@5;
+((2@3+3)@2*2)@1;

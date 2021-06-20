@@ -11,93 +11,83 @@ open Support.Error
 
 let reservedWords = [
   (* Keywords *)
-  ("import", fun i -> Parser.IMPORT i);
-  ("String", fun i -> Parser.USTRING i);
-  ("Top", fun i -> Parser.TTOP i);
-  ("type", fun i -> Parser.TYPE i);
-  ("<:", fun i -> Parser.LEQ i);
-  ("All", fun i -> Parser.ALL i);
-  ("Some", fun i -> Parser.SOME i);
-  ("let", fun i -> Parser.LET i);
-  ("in", fun i -> Parser.IN i);
-  ("as", fun i -> Parser.AS i);
   ("lambda", fun i -> Parser.LAMBDA i);
   ("if", fun i -> Parser.IF i);
   ("then", fun i -> Parser.THEN i);
   ("else", fun i -> Parser.ELSE i);
-  ("true", fun i -> Parser.TRUE i);
-  ("false", fun i -> Parser.FALSE i);
-  ("Bool", fun i -> Parser.BOOL i);
-  ("Int", fun i -> Parser.UINT i);
-  ("iszero", fun i -> Parser.ISZERO i);
-  ("unit", fun i -> Parser.UNIT i);
-  ("Unit", fun i -> Parser.UUNIT i);
-  ("timesfloat", fun i -> Parser.TIMESFLOAT i);
-  ("Float", fun i -> Parser.UFLOAT i);
-  ("inert", fun i -> Parser.INERT i);
   ("fix", fun i -> Parser.FIX i);
-  ("letrec", fun i -> Parser.LETREC i);
-  ("plus", fun i -> Parser.PLUS i);
-  ("gt", fun i -> Parser.GT i);
-  ("cons", fun i -> Parser.CONS i);
   ("head", fun i -> Parser.HEAD i);
   ("tail", fun i -> Parser.TAIL i);
   ("isnil", fun i -> Parser.ISNIL i);
+
+  ("unit", fun i -> Parser.UNIT i);
+  ("true", fun i -> Parser.TRUE i);
+  ("false", fun i -> Parser.FALSE i);
+
+  ("All", fun i -> Parser.ALL i);
+  ("Top", fun i -> Parser.TOP i);
+  ("Unit", fun i -> Parser.UUNIT i);
+  ("Bool", fun i -> Parser.UBOOL i);
+  ("Int", fun i -> Parser.UINT i);
+  ("Float", fun i -> Parser.UFLOAT i);
   ("List", fun i -> Parser.ULIST i);
   
   (* Symbols *)
-  ("_", fun i -> Parser.USCORE i);
-  ("'", fun i -> Parser.APOSTROPHE i);
-  ("\"", fun i -> Parser.DQUOTE i);
-  ("!", fun i -> Parser.BANG i);
+  ("!", fun i -> Parser.EXCLAMATION i);
+  ("\"", fun i -> Parser.QUOTATION i);
   ("#", fun i -> Parser.HASH i);
-  ("$", fun i -> Parser.TRIANGLE i);
-  ("*", fun i -> Parser.STAR i);
-  ("|", fun i -> Parser.VBAR i);
-  (".", fun i -> Parser.DOT i);
-  (";", fun i -> Parser.SEMI i);
-  (",", fun i -> Parser.COMMA i);
-  ("/", fun i -> Parser.SLASH i);
-  (":", fun i -> Parser.COLON i);
-  ("::", fun i -> Parser.COLONCOLON i);
-  ("=", fun i -> Parser.EQ i);
-  ("==", fun i -> Parser.EQEQ i);
-  ("[", fun i -> Parser.LSQUARE i); 
-  ("<", fun i -> Parser.LT i);
-  ("{", fun i -> Parser.LCURLY i); 
-  ("(", fun i -> Parser.LPAREN i); 
-  ("<-", fun i -> Parser.LEFTARROW i); 
-  ("{|", fun i -> Parser.LCURLYBAR i); 
-  ("[|", fun i -> Parser.LSQUAREBAR i); 
-  ("}", fun i -> Parser.RCURLY i);
-  (")", fun i -> Parser.RPAREN i);
-  ("]", fun i -> Parser.RSQUARE i);
-  (">", fun i -> Parser.GT i);
-  ("|}", fun i -> Parser.BARRCURLY i);
-  ("|>", fun i -> Parser.BARGT i);
-  ("|]", fun i -> Parser.BARRSQUARE i);
+  ("$", fun i -> Parser.DOLLAR i);
+  ("%", fun i -> Parser.PERCENT i);
+  ("&", fun i -> Parser.AMPERSAND i);
+  ("'", fun i -> Parser.APOSTROPHE i);
+  ("(", fun i -> Parser.LPARENTHESIS i);
+  (")", fun i -> Parser.RPARENTHESIS i);
+  ("*", fun i -> Parser.ASTERISK i);
   ("+", fun i -> Parser.PLUS i);
+  (",", fun i -> Parser.COMMA i);
   ("-", fun i -> Parser.MINUS i);
+  (".", fun i -> Parser.DOT i);
+  ("/", fun i -> Parser.SLASH i);
+
+  (":", fun i -> Parser.COLON i);
+  (";", fun i -> Parser.SEMICOLON i);
+  ("<", fun i -> Parser.LT i);
+  ("=", fun i -> Parser.EQ i);
+  (">", fun i -> Parser.GT i);
+  ("?", fun i -> Parser.QUESTION i);
   ("@", fun i -> Parser.AT i);
+  ("[", fun i -> Parser.LSQUARE i);
+  ("]", fun i -> Parser.RSQUARE i);
+  ("^", fun i -> Parser.CARET i);
+  ("_", fun i -> Parser.UNDERSCORE i);
+  ("`", fun i -> Parser.GRAVE i);
+  ("{", fun i -> Parser.LCURLY i);
+  ("|", fun i -> Parser.VERTICALBAR i);
+  ("}", fun i -> Parser.RCURLY i);
+  ("~", fun i -> Parser.TILDE i);
 
   (* Special compound symbols: *)
-  (":=", fun i -> Parser.COLONEQ i);
+  ("++", fun i -> Parser.PLUSPLUS i);
+  ("--", fun i -> Parser.MINUSMINUS i);
+  ("::", fun i -> Parser.COLONCOLON i);
+  ("<:", fun i -> Parser.LTCOLON i);
+  ("<=", fun i -> Parser.LE i);
+  (">=", fun i -> Parser.GE i);
   ("->", fun i -> Parser.ARROW i);
-  ("=>", fun i -> Parser.DARROW i);
-  ("==>", fun i -> Parser.DDARROW i);
 ]
 
 (* Support functions *)
 
 type buildfun = info -> Parser.token
-let (symbolTable : (string,buildfun) Hashtbl.t) = Hashtbl.create 1024
+let (symbolTable : (string, buildfun) Hashtbl.t) = Hashtbl.create 1024
 let _ =
-  List.iter (fun (str,f) -> Hashtbl.add symbolTable str f) reservedWords
+  List.iter (fun (str, f) -> Hashtbl.add symbolTable str f) reservedWords
 
 let createID i str =
   try (Hashtbl.find symbolTable str) i
   with _ ->
-    if (String.get str 0) >= 'A' && (String.get str 0) <= 'Z' then
+    let initial = String.get str 0 in
+    if initial >= 'A' && initial <= 'Z' then
        Parser.UCID {i=i;v=str}
     else 
        Parser.LCID {i=i;v=str}
@@ -162,17 +152,11 @@ rule main = parse
 
 | "/*" { depth := 1; startLex := info lexbuf; comment lexbuf; main lexbuf }
 
-| "# " ['0'-'9']+
-    { lineno := extractLineno (text lexbuf) 2 - 1; getFile lexbuf }
-
-| "# line " ['0'-'9']+
-    { lineno := extractLineno (text lexbuf) 7 - 1; getFile lexbuf }
-
 | '-'?['0'-'9']+
-    { Parser.INTV{i=info lexbuf; v=int_of_string (text lexbuf)} }
+    { Parser.INT{i=info lexbuf; v=int_of_string (text lexbuf)} }
 
-| '-'?['0'-'9']+ '.' ['0'-'9']+
-    { Parser.FLOATV{i=info lexbuf; v=float_of_string (text lexbuf)} }
+| '-'?['0'-'9']+ '.' ['0'-'9']*
+    { Parser.FLOAT{i=info lexbuf; v=float_of_string (text lexbuf)} }
 
 | ['A'-'Z' 'a'-'z' '_']
   ['A'-'Z' 'a'-'z' '_' '0'-'9' '\'']*
@@ -189,8 +173,6 @@ rule main = parse
    '=' '\'']
     { createID (info lexbuf) (text lexbuf) }
 
-| "\"" { resetStr(); startLex := info lexbuf; string lexbuf }
-
 | eof { Parser.EOF(info lexbuf) }
 
 | _  { error (info lexbuf) "Illegal character" }
@@ -206,38 +188,3 @@ and comment = parse
     { comment lexbuf }
 | "\n"
     { newline lexbuf; comment lexbuf }
-
-and getFile = parse
-  " "* "\"" { getName lexbuf }
-
-and getName = parse
-  [^ '"' '\n']+ { filename := (text lexbuf); finishName lexbuf }
-
-and finishName = parse
-  '"' [^ '\n']* { main lexbuf }
-
-and string = parse
-  '"'  { Parser.STRINGV {i = !startLex; v=getStr()} }
-| '\\' { addStr(escaped lexbuf); string lexbuf }
-| '\n' { addStr '\n'; newline lexbuf; string lexbuf }
-| eof  { error (!startLex) "String not terminated" }
-| _    { addStr (Lexing.lexeme_char lexbuf 0); string lexbuf }
-
-and escaped = parse
-  'n'	 { '\n' }
-| 't'	 { '\t' }
-| '\\'	 { '\\' }
-| '"'    { '\034'  }
-| '\''	 { '\'' }
-| ['0'-'9']['0'-'9']['0'-'9']
-    {
-      let x = int_of_string(text lexbuf) in
-      if x > 255 then
-	error (info lexbuf) "Illegal character constant"
-      else
-	Char.chr x
-    }
-| [^ '"' '\\' 't' 'n' '\'']
-    { error (info lexbuf) "Illegal character constant" }
-
-(*  *)

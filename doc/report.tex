@@ -1,7 +1,855 @@
 \documentclass{report}
-\title{}
-\author{}
+\title{\Huge Distributed Computing Language Design \\ Based on System F$_{\subty}$ \vspace{1.5em} \\ \Large Project Report in Course \emph{Design Principles of Programming Languages} \vspace{1.5em} \\ Repository: \url{https://github.com/tansongchen/dppl-project}}
+\author{Songchen Tan\thanks{tansongchen@pku.edu.cn}\quad Yue Wang\thanks{wangyue0502@pku.edu.cn}\quad Ruidong Zhu\thanks{zhurd@pku.edu.cn} \vspace{1em} \\ Peking University}
 \date{\today}
+
+\usepackage[hmargin=3cm,vmargin=4cm]{geometry}
+\usepackage{hyperref}
+\usepackage{listings}
+\lstset{basicstyle=\ttfamily,
+  frame=single,
+  showstringspaces=false,
+  numberstyle=\color{red},
+  keywordstyle=\color{blue}
+}
+\usepackage{xcolor}
+\hypersetup{
+  colorlinks = true,
+  linkcolor = blue,
+  citecolor = red,
+  filecolor = magenta,
+  urlcolor = magenta,
+}
+\usepackage{array}
+\newcommand{\PreserveBackslash}[1]{\let\temp=\\#1\let\\=\temp}
+\newcolumntype{C}[1]{>{\PreserveBackslash\centering}p{#1}}
+\newcolumntype{R}[1]{>{\PreserveBackslash\raggedleft}p{#1}}
+\newcolumntype{L}[1]{>{\PreserveBackslash\raggedright}p{#1}}
+\bibliographystyle{plain}
+\usepackage[no-math]{fontspec}
+\usepackage{newunicodechar}
+\setmainfont{Adobe Caslon Pro}
+\setmonofont[Scale=0.9]{Source Code Pro}
+\newfontfamily{\fallbackfont}{Menlo}[Scale=0.9]
+\DeclareTextFontCommand{\textfallback}{\fallbackfont}
+\usepackage{indentfirst}
+\usepackage{multicol}
+\setlength{\columnseprule}{.5pt}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{relsize}
+\usepackage{mathastext}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{proof}{Proof}
+
+\newtheorem{example}{Example}
+
+\MTfamily{\ttdefault}\Mathastext
+
+\Umathchardef\lambda="0 \symmtletterfont `λ
+\Umathchardef\Gamma="0 \symmtletterfont `Γ
+% \newcommand{\defeq}{{::=}}
+\newcommand{\at}{~\texttt{@}~}
+\newcommand{\repl}{\texttt{▸ }}
+\renewcommand{\forall}{\texttt{∀}}
+\newcommand{\arr}{\texttt{→}}
+\newcommand{\arrow}{\texttt{ → }}
+\newcommand{\subty}{\texttt{{\raisebox{-.7pt}{<}:}}}
+\newcommand{\ty}{{:}}
+\newcommand{\subtype}{~\texttt{\raisebox{-.7pt}{<}:}~}
+\newcommand{\type}{:}
+\newcommand{\bind}{~\texttt{\textasciitilde}~}
+\newcommand{\ctx}{~\mathsmaller\vdash~}
+\newcommand{\ctxtype}[2]{\Gamma\ctx #1 \type #2}
+\newcommand{\ctxsubtype}[2]{\Gamma\ctx #1 \subtype #2}
+\newcommand{\ctxtypewith}[3]{\Gamma,#1 \ctx #2 \type #3}
+\newcommand{\ctxsubtypewith}[3]{\Gamma,#1 \ctx #2 \subtype #3}
+
 \begin{document}
 \maketitle
+\tableofcontents
+
+\chapter{Introduction}
+\section{Motivation}
+
+Distributed computing methods plays a important role in building scalable applications in various performance-directed fields, such as scientific computing, machine learning and backend development. Distributed computing is often achieved by several autonomous computational entities, each of which has its own local memory; the entities communicate and coordinate their actions by passing messages to each other. Depending on the physical setup, these entites can be some processes running on the same machine (so that each of them have access to an isolated segment of memory) or physically distributed machines.
+
+From a programmer's perspective, the programming techniques for distributing techniques can be roughly divided into two different categories:
+
+\begin{itemize}
+  \item \emph{Communication Infrastructures}. There exists infrastructures like Message Passing Interface (MPI)\cite{mpi} and OpenMP\cite{openmp}, which handles low-level communication work and exposes a set of communication instructions. However, in practice, programmers often find that programs with explicit two-sided communication are hard  to write, read and maintain; this is partially due to a coupling between communication and high-level computation workflow.
+  \item \emph{Programming Models}. There also exists distributed programming models like MapReduce\cite{mapreduce}, which handles all communication and exposes a set of APIs such as mapper and reducer. Programmers don't write communication themselves, but they may find the model not flexible enough in some computational tasks.
+\end{itemize}
+\section{Goals}
+
+We would like to find a balance, or ``sweet point'', between these two approaches, in terms of building a language that represent distribued computing configurations with language features. Such a language should:
+
+\begin{itemize}
+  \item Encode the distribution information in the type system, i.e. for type $T$, there exists type $T \at n$ for data located at the memory owned by process $n$;
+  \item Provide built-in polymorphic functions that have different behavior for different distribution types; this \textbf{\emph{ad hoc} polymorphism} handles all communication work;
+  \item Let user define their own polymorphic functions with \textbf{parametric polymorphism}, based on built-in polymorphic functions.
+\end{itemize}
+
+A intepreter for such a language can call the MPI functions (in C) to achieve the actual communication behavior.
+
+\section{Principles}
+
+In order to achieve these goals, we make heavy use of bounded quantification (parametric polymorphism constrained to subtypes of a specific type) which originates in system F$_{\subty}$. Bounded quantification make some assumptions for a polymorphic function about the universal type $X$, formally $\lambda X\subty T.t$, so that we can use these assumptions to operate on data in the body $t$.
+
+The following example demonstrates the power of bounded quantification. Function $f$ wants to operate on all record types that has a field $a$ of type $Nat$, and without the bound $\subty\{a\ty Nat\}$, $f$ cannot safely access the field $a$ in its body.
+
+\begin{flalign*}
+&f = \lambda X\subty\{a\ty Nat\}.~\lambda x{:}X.~\{asucc=succ(x.a)\} &\\
+\repl &f : \forall X\subty \{a\ty Nat\}.~X \arrow \{asucc\ty Nat\}
+\end{flalign*}
+
+We base our language on pure F$_{\subty}$ (formally defined on \emph{Types and Programming Languages}\cite{tapl} page 392), and we add several base types (unit, boolean, integers and floating points) and features (fix, binding, condition, list). Finally, we define the distribution types and their corresponding typing and evaluation rules.
+
+\chapter{Formalities}
+
+\section{Language Definition}
+
+A program of this language consists of several commands separated by semicolons (;), where each command is either a term $t$ or a binding $d$. A global table $B$ is maintained to keep all bindings.
+
+Besides common components in system F$_\subty$ and common extensions (condition, fix, unit), we would like to comment on the following key component of this language:
+
+\begin{enumerate}
+  \item \emph{Literals}. Literal $l$ is a boolean, integer or floating point value written as-is;
+  \item \emph{Distributions}. Given a position $p$ (i.e. the processor rank), one can define a distribution term $t\at p$ representing data on processor $p$. A distribution term is considered a value if $t$ is a literal $l$, and at the same time, the literal $l$ is not considered a value since it will evaluates to $l\at p$. This means that it's not necessary for programmers to specify the position for all data since the data will obtain its position at runtime from a scheduling algorithm. Distribution term $t\at p$ has corresponding distribution type $T\at p$, which is a subtype of $T$;
+  \item \emph{Unary Expressions}. A unary operator $u$, which can be one of positive sign, negative sign, increment and decrement, operating on a term $t$ gives a unary expression. Unary operators are intrisically parallelized, because the actual computation of unary operation on $l\at p$ is carried out by processor $p$;
+  \item \emph{Binary Expressions}. A binary operator $b$, which can be one of plus, minus, times, over (arithmatic binary operators, $ab$), greater than, equal, less than (comparison binary operators, $cb$), operating on two terms gives a binary expression. Binary operators are also intrisically parallelized, because the actual computation of binary operation on $l_1\at p_1$ and $l_2\at p_2$ is carried out by processor $p_1$;
+  \item \emph{Lists}. One can define lists for literal types. Since $\ctxsubtype{T\at p}{T}$, the elements of such a list can be at any position, therefore making an analogy to \verb|DistributedArray.jl| in Julia (\url{https://github.com/JuliaParallel/DistributedArrays.jl}) or the \verb|mapper| in MapReduce\cite{mapreduce}. There also exists syntactic sugars $[t_1, t_2, \cdots]$ to define lists with convenience.
+\end{enumerate}
+
+Other definitions natually follow, as shown in \ref{syntax}, \ref{typing} and \ref{evaluation}.
+
+\begin{figure}
+  \centering
+  \begin{multicols}{2}
+    \textbf{Syntax}\hfill\mbox{}
+    \begin{tabular}{L{1cm}L{2.5cm}R{3cm}}
+      $t ::=$ &  & terms: \\
+      & $x$ & \textit{variable} \\
+      & $\lambda x\ty T.t$ & \textit{abstraction} \\
+      & $t~t$ & \textit{applicaton} \\
+      & $\lambda X\subty T.t$ & \textit{type abstraction} \\
+      & $t~[T]$ & \textit{type applicaton} \\
+      & $if~t~then~t~else~t$ & \textit{condition} \\
+      & $fix~t$ & \textit{fix} \\
+      & $unit$ & \textit{unit} \\
+      & $l$ & \textit{literal} \\
+      & $u~t$ & \textit{unary expression} \\
+      & $t~b~t$ & \textit{binary expression} \\
+      & $t\at p$ & \textit{distribution} \\
+      & $L~[]$ & \textit{empty list} \\
+      & $t :: t$ & \textit{list constructor} \\
+      & $isnil~t$ & \textit{test for empty list} \\
+      & $head~t$ & \textit{head of a list} \\
+      & $tail~t$ & \textit{tail of a list} \\
+      & & \\
+      $l ::=$ & & literals \\
+      & $true, false$ & \textit{boolean} \\
+      & $0, 1, -1, \cdots$ & \textit{integer} \\
+      & $2.5, 3.14, \cdots$ & \textit{floating point} \\
+      & & \\
+      $u ::=$ & & unary operators: \\
+      & $+, -, ++, --$ & \textit{arithmetic operator} \\
+      & & \\
+      $b ::=$ & & binary operators: \\
+      & $+, -, *, /$ & \textit{arithmetic operator} $(ab)$ \\
+      & $<, =, >$ & \textit{comparison operator} $(cb)$ \\
+      & & \\
+      $v ::=$ &  & values: \\
+      & $\lambda x\ty T.t$ & \textit{abstraction value} \\
+      & $\lambda X\subty T.t$ & \textit{type abstraction value} \\
+      & $unit$ & \textit{unit value} \\
+      & $l \at p$ & \textit{distribution value} \\
+      & $L~[]$ & \textit{empty list value} \\
+      & $v :: v$ & \textit{list constructor value} \\
+      & & \\
+      $p ::=$ & $0, 1, 2, \cdots, N_{proc}$ & positions \\
+    \end{tabular}
+    \vfill\null
+    \columnbreak
+    \begin{tabular}{L{1cm}L{2.5cm}R{3cm}}
+      $\Gamma ::=$ &  & contexts: \\
+      & $\varnothing$ & \textit{empty context} \\
+      & $\Gamma,x\ty T$ & \textit{term variable binding} \\
+      & $\Gamma,X\subty T$ & \textit{type variable binding} \\
+      & & \\
+      $T ::=$ &  & types: \\
+      & $X$ & \textit{type variable} \\
+      & $Top$ & \textit{maximum type} \\
+      & $T\arrow T$ & \textit{type of functions} \\
+      & $\forall X\subty T.T$ & \textit{universal type} \\
+      & $Unit$ & \textit{unit type} \\
+      & $L$ & \textit{literal type} \\
+      & $List~L$ & \textit{list type} \\
+      & $L\at p$ & \textit{distribution type} \\
+      & & \\
+      $L ::=$ & & literal types: \\
+      & $Bool$ & \textit{boolean type} \\
+      & $Int$ & \textit{integer type} \\
+      & $Float$ & \textit{floating point type} \\
+      & & \\
+      $d ::=$ & & bindings \\
+      & $x \bind t$ & \textit{term abbreviation} \\
+      & $X \bind T$ & \textit{type abbreviation} \\
+      & & \\
+      $B ::=$ & & tables \\
+      & $\varnothing$ & \textit{empty table} \\
+      & $B,x\bind t$ & \textit{term abbreviation} \\
+      & $B,X\bind T$ & \textit{type abbreviation} \\
+    \end{tabular}
+
+    \vspace{2em}
+
+    \textbf{Derived Syntax}\hfill\mbox{}
+    \begin{equation}
+      \frac{\forall i, \ctxtype{t_i}{L}}{[t_1, t_2, \cdots] \equiv t_1 :: t_2 :: \cdots :: L[]}
+      \tag{list sugar}
+      \label{list sugar}
+    \end{equation}
+  \end{multicols}
+  \caption{Language Definition (1): Syntax}
+  \label{syntax}
+\end{figure}
+
+\begin{figure}
+  \begin{multicols}{2}
+    \textbf{Subtyping}\hfill \fbox{$\Gamma \ctx S \subtype T$}
+    \begin{equation}
+        \ctxsubtype{S}{S}
+        \tag{\textsc{S-Refl}}
+        \label{srefl}
+    \end{equation}
+    \begin{equation}
+        \ctxsubtype{S}{Top}
+        \tag{\textsc{S-Top}}
+        \label{stop}
+    \end{equation}
+    \begin{equation}
+        \frac{X\subty T\in\Gamma}{\ctxsubtype{X}{T}}
+        \tag{\textsc{S-Tvar}}
+        \label{stvar}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxsubtype{S}{U}\qquad \ctxsubtype{U}{T}}{\ctxsubtype{S}{T}}
+        \tag{\textsc{S-Trans}}
+        \label{strans}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxsubtype{T_1}{S_1}\qquad \ctxsubtype{S_2}{T_2}}{\ctxsubtype{S_1\arr S_2}{T_1\arr T_2}}
+        \tag{\textsc{S-Arrow}}
+        \label{sarrow}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxsubtypewith{X\subty U_1}{S_2}{T_2}}{\ctxsubtype{\forall X\subty U_1.S_2}{\forall X\subty U_1.T_2}}
+        \tag{\textsc{S-All}}
+        \label{sall}
+    \end{equation}
+    \begin{equation}
+        \ctxsubtype{S\at p}{S}
+        \tag{\textsc{S-At}}
+        \label{sat}
+    \end{equation}
+
+    \vspace{2em}
+
+    \textbf{Typing}\hfill \fbox{$\ctxtype{t}{T}$}
+    \begin{equation}
+        \frac{x\ty T\in\Gamma}{\ctxtype{x}{T}}
+        \tag{\textsc{T-Var}}
+        \label{tvar}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxtypewith{x\ty T_1}{t_2}{T_2}}{\ctxtype{\lambda x:T_1.t_2}{T_1\arr T_2}}
+        \tag{\textsc{T-Abs}}
+        \label{tabs}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxtype{t_1}{T_{11}\arr T_{12}}\qquad \ctxtype{t_2}{T_{12}}}{\ctxtype{t_1 t_2}{T_{11}}}
+        \tag{\textsc{T-App}}
+        \label{tapp}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxtypewith{X\subty T_1}{t_2}{T_2}}{\ctxtype{\lambda X\subty T_1.t_2}{\forall X\subty T_1.T_2}}
+        \tag{\textsc{T-TAbs}}
+        \label{ttabs}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxtype{t_1}{\forall X\subty T_{11}.T_{12}}\qquad \ctxsubtype{T_2}{T_{11}}}{\ctxtype{t_1 [T_2]}{[X\mapsto T_2]T_{12}}}
+        \tag{\textsc{T-TApp}}
+        \label{ttapp}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxtype{t}{S}\qquad\ctxsubtype{S}{T}}{\ctxtype{t}{T}}
+        \tag{\textsc{T-Sub}}
+        \label{tsub}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxtype{t_1}{Bool}\qquad\ctxtype{t_2}{T_2}\qquad \ctxtype{t_3}{T_3}}{\ctxtype{if~t_1~then~t_2~else~t_3}{T_2~\mathsmaller{\vee}~T_3}}
+        \tag{\textsc{T-If}}
+        \label{tif}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxtype{t_1}{T_{11}\arr T_{12}}\qquad \ctxsubtype{T_{12}}{T_{11}}}{\ctxtype{fix~t_1}{T_{12}}}
+        \tag{\textsc{T-Fix}}
+        \label{tfix}
+    \end{equation}
+    \begin{equation}
+        \ctxtype{unit}{Unit}
+        \tag{\textsc{T-Unit}}
+        \label{tunit}
+    \end{equation}
+    \begin{equation}
+        \ctxtype{l}{L}\textrm{, respectively}
+        \tag{\textsc{T-Literal}}
+        \label{tliteral}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxtype{t_1}{T}\qquad T = Int~or~Float}{\ctxtype{u~t_1}{T}}
+        \tag{\textsc{T-Unary}}
+        \label{tunary}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxtype{t_1}{T}\qquad\ctxtype{t_2}{T}\qquad T = Int~or~Float}{\ctxtype{t_1~ab~t_2}{T}}
+        \tag{\textsc{T-Binary1}}
+        \label{tbinary1}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxtype{t_1}{T}\qquad\ctxtype{t_2}{T}\qquad T = Int~or~Float}{\ctxtype{t_1~cb~t_2}{Bool}}
+        \tag{\textsc{T-Binary2}}
+        \label{tbinary2}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxtype{t}{L}}{\ctxtype{t\at p}{L\at p}}
+        \tag{\textsc{T-At1}}
+        \label{tat1}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxtype{t}{L\at p}}{\ctxtype{t\at q}{L\at q}}
+        \tag{\textsc{T-At2}}
+        \label{tat2}
+    \end{equation}
+    \begin{equation}
+        \ctxtype{T~[]}{List~T}
+        \tag{\textsc{T-Nil}}
+        \label{tnil}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxtype{t_1}{T}\qquad\ctxtype{t_2}{List~T}}{\ctxtype{t_1 :: t_2}{List~T}}
+        \tag{\textsc{T-Cons}}
+        \label{tcons}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxtype{t_1}{List~T}}{\ctxtype{isnil~t_1}{Bool}}
+        \tag{\textsc{T-Isnil}}
+        \label{tisnil}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxtype{t_1}{List~T}}{\ctxtype{head~t_1}{T}}
+        \tag{\textsc{T-Head}}
+        \label{thead}
+    \end{equation}
+    \begin{equation}
+        \frac{\ctxtype{t_1}{List~T}}{\ctxtype{tail~t_1}{List~T}}
+        \tag{\textsc{T-Tail}}
+        \label{ttail}
+    \end{equation}
+  \end{multicols}
+  \caption{Language Definition (2): Subtyping and Typing Rules}
+  \label{typing}
+\end{figure}
+
+\begin{figure}
+  \begin{multicols}{2}
+    \textbf{Evaluation}\hfill \fbox{$t \longrightarrow t'$}
+    \begin{equation}
+      \frac{t_1\longrightarrow t_1'}{t_1~t_2\longrightarrow t_1'~t_2}
+      \tag{\textsc{E-App1}}
+      \label{eapp1}
+    \end{equation}
+    \begin{equation}
+      \frac{t_2\longrightarrow t_2'}{v_1~t_2\longrightarrow v_1~t_2'}
+      \tag{\textsc{E-App2}}
+      \label{eapp2}
+    \end{equation}
+    \begin{equation}
+      (\lambda x\ty T_{11}.t_{12}~v_2)\longrightarrow [x\mapsto v_2]~t_{12}
+      \tag{\textsc{E-AppAbs}}
+      \label{eappabs}
+    \end{equation}
+    \begin{equation}
+      \frac{t_1\longrightarrow t_1'}{t_1~[T_2]\longrightarrow t_1'~[T_2]}
+      \tag{\textsc{E-TApp}}
+      \label{etapp}
+    \end{equation}
+    \begin{equation}
+      (\lambda X\subty T_{11}.t_{12}~[T_2])\longrightarrow [X\mapsto T_2]~t_{12}
+      \tag{\textsc{E-TAppAbs}}
+      \label{etappabs}
+    \end{equation}
+    \begin{equation}
+      x\bind t | B\longrightarrow unit | B, x \bind t
+      \tag{\textsc{E-Bind}}
+      \label{ebind}
+    \end{equation}
+    \begin{equation}
+      X\bind T | B\longrightarrow unit | B, X \bind T
+      \tag{\textsc{E-TBind}}
+      \label{etbind}
+    \end{equation}
+    \begin{equation}
+      \frac{x\bind t \in B}{x \longrightarrow t}
+      \tag{\textsc{E-Lookup}}
+      \label{elookup}
+    \end{equation}
+    \begin{equation}
+      \frac{X\bind T \in B}{X \longrightarrow T}
+      \tag{\textsc{E-TLookup}}
+      \label{etlookup}
+    \end{equation}
+    \begin{equation}
+      fix~(\lambda x\ty T_1.t_2)\longrightarrow[x\mapsto (fix~(\lambda x\ty T_1.t_2))]~t_2
+      \tag{\textsc{E-FixBeta}}
+      \label{efixbeta}
+    \end{equation}
+    \begin{equation}
+      \frac{t\longrightarrow t'}{fix~t\longrightarrow fix~t'}
+      \tag{\textsc{E-Fix}}
+      \label{efix}
+    \end{equation}
+    \begin{equation}
+      if~true\at p~then~t_2~else~t_3\longrightarrow t_2
+      \tag{\textsc{E-IfTrue}}
+      \label{eiftrue}
+    \end{equation}
+    \begin{equation}
+      if~false\at p~then~t_2~else~t_3\longrightarrow t_2
+      \tag{\textsc{E-IfFalse}}
+      \label{eiffalse}
+    \end{equation}
+    \begin{equation}
+      \frac{t_1\longrightarrow t_1'}{if~t_1~then~t_2~else~t_3\longrightarrow if~t_1'~then~t_2~else~t_3}
+      \tag{\textsc{E-If}}
+      \label{eif}
+    \end{equation}
+    \begin{equation}
+      \frac{t \longrightarrow t'}{t\at p\longrightarrow t'\at p}
+    \tag{\textsc{E-At}}
+    \label{eat}
+    \end{equation}
+    \begin{equation}
+      l \longrightarrow l\at p
+    \tag{\textsc{E-Scatter}}
+    \label{escatter}
+    \end{equation}
+    \begin{equation}
+      l\at p\at q \longrightarrow l\at q
+    \tag{\textsc{E-Move}}
+    \label{emove}
+    \end{equation}
+    \begin{equation}
+      \frac{t_1\longrightarrow t_1'}{u~t_1\longrightarrow u~t_1'}
+      \tag{\textsc{E-Unary}}
+      \label{eunary}
+    \end{equation}
+    \begin{equation}
+      u~v_1 \longrightarrow \textrm{evaluation result}
+    \tag{\textsc{E-UnaryApp}}
+    \label{eunaryapp}
+    \end{equation}
+    \begin{equation}
+      \frac{t_1\longrightarrow t_1'}{t_1~b~t_2\longrightarrow t_1'~b~t_2}
+      \tag{\textsc{E-Binary1}}
+      \label{ebinary1}
+    \end{equation}
+    \begin{equation}
+      \frac{t_2\longrightarrow t_2'}{v_1~b~t_2\longrightarrow v_1~b~t_2'}
+      \tag{\textsc{E-Binary2}}
+      \label{ebinary2}
+    \end{equation}
+    \begin{equation}
+      v_1~b~v_2 \longrightarrow \textrm{evaluation result}
+    \tag{\textsc{E-BinaryApp}}
+    \label{ebinaryapp}
+    \end{equation}
+    \begin{equation}
+      \frac{t_1\longrightarrow t_1'}{t_1 :: t_2\longrightarrow t_1' :: t_2}
+      \tag{\textsc{E-Cons1}}
+      \label{econs1}
+    \end{equation}
+    \begin{equation}
+      \frac{t_2\longrightarrow t_2'}{v_1 :: t_2\longrightarrow v_1 :: t_2'}
+      \tag{\textsc{E-Cons2}}
+      \label{econs2}
+    \end{equation}
+    \begin{equation}
+      \frac{t_1\longrightarrow t_1'}{isnil~t_1\longrightarrow isnil~t_1'}
+      \tag{\textsc{E-Isnil}}
+      \label{eisnil}
+    \end{equation}
+    \begin{equation}
+      isnil~T[]\longrightarrow true
+      \tag{\textsc{E-IsnilNil}}
+      \label{eisnilnil}
+    \end{equation}
+    \begin{equation}
+      isnil~(v_1 :: v_2)\longrightarrow false
+      \tag{\textsc{E-IsnilCons}}
+      \label{eisnilcons}
+    \end{equation}
+    \begin{equation}
+      \frac{t_1\longrightarrow t_1'}{head~t_1\longrightarrow head~t_1'}
+      \tag{\textsc{E-Head}}
+      \label{ehead}
+    \end{equation}
+    \begin{equation}
+      head~(v_1 :: v_2)\longrightarrow v_1
+      \tag{\textsc{E-HeadCons}}
+      \label{eheadcons}
+    \end{equation}
+    \begin{equation}
+      \frac{t_1\longrightarrow t_1'}{tail~t_1\longrightarrow tail~t_1'}
+      \tag{\textsc{E-Tail}}
+      \label{etail}
+    \end{equation}
+    \begin{equation}
+      tail~(v_1 :: v_2)\longrightarrow v_2
+      \tag{\textsc{E-TailCons}}
+      \label{etailcons}
+    \end{equation}
+  \end{multicols}
+  \caption{Language Definition (3): Evaluation Rules}
+  \label{evaluation}
+\end{figure}
+
+\section{Language Implementation}
+
+The internal binding to MPI is not relevant to our central topic, but it may be interesting to talk about. A typical running command of the language intepreter is
+
+\begin{lstlisting}[language=bash,caption={Running Command Showcase}]
+mpiexec -n 5 ./f test.f
+\end{lstlisting}
+
+Things happend behind this command are:
+
+\begin{enumerate}
+  \item In the typing stage, one of the processor computes the type;
+  \item At the beginning of the evaluation stage, each processor obtains the same AST;
+  \item At each evaluation step, each processor
+  \begin{enumerate}
+    \item gives a dummy value if this evaluation is irrelevant to it (i.e. should be done by other processors), and depending on the situation, send data to other processes;
+    \item computes the actual value if this evaluation is relevant to it (i.e. should be done by itself), and depending on the situation, fetch data from other processes.
+  \end{enumerate}
+\end{enumerate}
+
+\section{Related Attempts}
+
+Apart from the message-passing style discussed above, we, initially, also tried to define a language-wide parallelization scheme with a light-weight multithreading spawn/join style. The syntax, typing and evaluation rules are shown in \ref{multithreading}.
+
+\begin{figure}[!ht]
+  \begin{multicols}{2}
+    \centering
+    \textbf{Syntax}\hfill\mbox{}
+
+    \begin{tabular}{ll}
+      $t ::=$ & $\cdots$ | $spawn~t$ | $join~t$ | $domain_t$ \\
+      $v ::=$ & $\cdots$ | $domain_v$ \\
+      $T ::=$ & $\cdots$ | $Domain~T$ \\
+    \end{tabular}
+
+    \vspace{2em}
+
+    \textbf{Typing}\hfill \fbox{$\ctxtype{t}{T}$}
+    $$
+      \frac{\ctxtype{t}{Unit\arr T}}{\ctxtype{spawn~t}{Domain~T}}
+    $$
+    $$
+      \frac{\ctxtype{t}{Domain~T}}{\ctxtype{join~t}{T}}
+    $$
+    \textbf{Evaluation}\hfill \fbox{$t \longrightarrow t'$}
+    $$
+      \frac{t\longrightarrow t'}{spawn~t\longrightarrow spawn~t'}
+    $$
+    $$
+      spawn~\lambda x\ty Unit.t\longrightarrow domain_t
+    $$
+    $$
+      \frac{t\longrightarrow t'}{domain_t\longrightarrow domain_{t'}}
+    $$
+    $$
+      \frac{t\longrightarrow t'}{join~t\longrightarrow join~t'}
+    $$
+    $$
+      join~domain_v\longrightarrow v
+    $$
+  \end{multicols}
+  \caption{Spawn/Join Based Parallelization}
+  \label{multithreading}
+\end{figure}
+
+The $spawn$ operator spawns a new thread from a function $\lambda x\ty Unit.t$ and creates term $t$ in this thread, namely $domain_t$; this term evaluates in parallel to give $domain_v$ and finally fetched to the main thread by $join~domain_v$. This scheme can be implemented with multicore OCaml compiler (\url{https://github.com/ocaml-multicore/ocaml-multicore}). Nevertheless, we find that the expressing ability and flexibility of this scheme is rather limited, so we later switched to the message passing scheme.
+
+\chapter{Properties}
+
+\section{Preservation}
+
+\begin{theorem}[Preservation]
+  If $\ctxtype{t}{T}$ and $t\longrightarrow t'$, then $\ctxtype{t'}{T}$.
+\end{theorem}
+\begin{proof}
+  By induction on a derivation of $\ctxtype{t}{T}$. For simplicity here, we make use of all lemmas introduced in TAPL chapter 26, and we only analyze cases not included in Theorem 26.4.13.
+  \begin{itemize}
+    \item Case \ref{tunit}, \ref{tnil}, \ref{tat1}, \ref{tat2}: these cases are impossible, since they are values;
+    \item Case \ref{tliteral}: literals will evaluate to a ``at'' term, which has a subtype $L\at p$. Therefore, it also has the original type;
+    \item Case \ref{tif}:
+    \begin{itemize}
+      \item Subcase \ref{eif}: it follows from induction hypothesis;
+      \item Subcase \ref{eiftrue}, \ref{eiffalse}: we note that the join $T = T_2\vee T_3$ satisfies $T_2\subtype T$ and $T_3\subtype T$, so either evaluation result still have type $T$.
+    \end{itemize}
+    \item Case \ref{tfix}:
+    \begin{itemize}
+      \item Subcase \ref{efix}: it follows from induction hypothesis;
+      \item Subcase \ref{efixbeta}: let's assume function $\lambda x\ty T_1.t_2$ has type $T_1\arr T_2$, since $fix~(\lambda x\ty T_1.t_2)$ has type $T_2\subtype T_1$, it is also a valid input of that function; therefore it follows from \ref{tapp}.
+    \end{itemize}
+    \item Case \ref{tunary}, \ref{tbinary1}, \ref{tbinary2}: they follows from the definition of arithmetic and comparison operators;
+    \item Case \ref{tcons}: either subcase (\ref{econs1}, \ref{econs2}) follows from induction hypothesis;
+    \item Case \ref{tisnil}:
+    \begin{itemize}
+      \item Subcase \ref{eisnil}: it follows from induction hypothesis;
+      \item Subcase \ref{eisnilnil}, \ref{eisnilcons}: they gives $true$ or $false$ which are instances of $Bool$.
+    \end{itemize}
+    \item Case \ref{thead}, \ref{ttail}: similar proof as \ref{tisnil}.
+  \end{itemize}
+\end{proof}
+
+\section{Progress}
+
+\begin{lemma}[Canonical Forms of Lists]
+  If $v$ is a closed value of type $List~T_1$, then either (1) $v$ has the form $T_1[]$ or (2) $v$ has the form $v_1 :: v_2$, where $v_1\type T_1$ and $v_2\type List~T_1$.
+  \label{cflist}
+\end{lemma}
+\begin{proof}
+  By induction on a derivation of $\ctxtype{v}{List~T_1}$.
+  \begin{itemize}
+    \item Case \ref{tnil}: it satisfies (1);
+    \item Case \ref{tcons}: $v$ has the form $t_1 :: t_2$, $\ctxtype{t_1}{T}$ and $\ctxtype{t_2}{List T}$; we note that neither $t_1$ nor $t_2$ can evaluate, therefore (2) is satisfied;
+    \item Case \ref{ttail}: similar proof as \ref{tcons}.
+  \end{itemize}
+\end{proof}
+
+\begin{theorem}[Progress]
+  If $t$ is a closed, well-typed term, then either $t$ is a
+  value or else there is some $t'$ with $t\longrightarrow t'$.
+\end{theorem}
+\begin{proof}
+  By induction on a derivation of $\ctxtype{t}{T}$.
+  \begin{itemize}
+    \item Case \ref{tunit}, \ref{tnil}, \ref{tat1}, \ref{tat2}: they are values;
+    \item Case \ref{tliteral}: literals evaluate to a ``at'' term (\ref{escatter});
+    \item Case \ref{tif}: from induction hypothesis, either $t_1$ is a value or it can evaluate,
+    \begin{itemize}
+      \item In the former case, it must have a form $true\at p$ or $false\at p$, so \ref{eiftrue} or \ref{eiffalse} applies;
+      \item In the latter case, \ref{eif} applies;
+    \end{itemize}
+    \item Case \ref{tfix}: from induction hypothesis, either $t_1$ is a value or it can evaluate,
+    \begin{itemize}
+      \item In the former case, by leveraging Lemma 26.4.14 it must have a form $\lambda x\ty T_{11}.t$, so \ref{efixbeta} applies;
+      \item In the latter case, \ref{efix} applies;
+    \end{itemize}
+    \item Case \ref{tunary}, \ref{tbinary1}, \ref{tbinary2}: they follows from the definition of arithmetic and comparison operators;
+    \item Case \ref{tcons}: either subcase (\ref{econs1}, \ref{econs2}) follows from induction hypothesis;
+    \item Case \ref{tisnil}: from induction hypothesis, either $t_1$ is a value or it can evaluate,
+    \begin{itemize}
+      \item In the former case, by leveraging \ref{cflist} it has the form $T[]$ or $v_{11} :: v_{12}$, therefore either \ref{eisnilnil} or \ref{eisnilcons} applies;
+      \item In the latter case, \ref{eisnil} applies
+    \end{itemize}
+    \item Case \ref{thead}, \ref{ttail}: similar proof as \ref{tisnil}.
+  \end{itemize}
+\end{proof}
+
+\section{Problem Definition and Solving}
+
+\begin{theorem}[Distribution Invariance]
+  Suppose a function $f: \forall X_i. (X_1\subty L_1)\arr (X_2\subty L_2)\arr\cdots (X_n\subty L_n)\arr T$ is defined in this language, where $T_i$ are types of ``distributable'' data, then $f$ gives the same output regardless of the input types (i.e. positions), as long as we erase all positional information from the output.
+\end{theorem}
+\begin{proof}
+  Since the final type $T$ can be arbitrarily ``arrowed'', this proposition natually reduces to the simple case $f = \lambda X\subty L.~\lambda x:X.t$ that have type $\forall X\subty L.X\arr T$.
+
+  We prove it by induction on the evaluation of $f~[L\at p]~(l\at p)\equiv [x\mapsto l\at p, X\mapsto L\at p]t$, assuming all smaller evaluations satisfy this theorem:
+  \begin{itemize}
+    \item Case \ref{eiftrue}, \ref{eiffalse}: the result discards position information;
+    \item Case \ref{eat}: it follows from the induction hypothesis;
+    \item Case \ref{escatter}, \ref{emove}: straightforward after erasing position information;
+    \item Case \ref{eunaryapp}, \ref{ebinaryapp}: they follows from the MPI implementation of intrinsically parallelized operators;
+    \item Case \ref{eisnilcons}: the result discards position information;
+    \item Case \ref{eheadcons}, \ref{etailcons}: $v_1$ (or $v_2$) is retained, so they follows from the induction hypothesis;
+    \item All other cases: they follows from the induction hypothesis.
+  \end{itemize}
+\end{proof}
+
+\chapter{Examples}
+
+\section{Programmatic Setup}
+
+In order to run the following examples, an intepreter of this language need to be built, and below are the instructions of building such a intepreter. However, if you are not interested in actually running examples, you can skip this section and move on to the next section.
+
+\subsection{Obtaining the Source Code}
+
+The Git repository of this language is hosted at \url{https://github.com/tansongchen/dppl-project}. You can clone this repository with
+
+\begin{lstlisting}[language=bash,caption={Obtaining the Source Code}]
+git clone https://github.com/tansongchen/dppl-project
+cd dppl-project
+git submodule update
+\end{lstlisting}
+
+Note that the reposity contains the OCaml MPI Library (\url{https://github.com/xavierleroy/ocamlmpi}) as a submodule, so you should use \verb|git submodule update| to download it.
+
+\subsection{Prerequisites}
+
+To successfully compile the intepreter, you should have the following toolkits installed:
+
+\begin{itemize}
+  \item An OCaml version manager, such as \verb|opam|;
+  \item A C compiler, such as \verb|gcc|;
+  \item An implementation of MPI, such as \verb|mpich|\cite{mpich}, installed at the standard location; the installation guide of \verb|mpich| can be found at \url{https://www.mpich.org/}.
+\end{itemize}
+
+The following commands assume you are using \verb|opam|, \verb|gcc| and \verb|mpich|, but alternatives should also work.
+
+\subsection{Compiling and Installing the OCaml MPI Library}
+
+\begin{lstlisting}[language=bash,caption={Compiling and Installing the OCaml MPI Library}]
+opam switch 4.06.0
+cd mpi
+make
+make install
+\end{lstlisting}
+
+Here a new switch of version \verb|4.06.0| is created since we implemented the language with \verb|4.06.0| and didn't test on other versions. The OCaml MPI library is compiled and installed to the package location of the current switch, so it can be later found by the intepreter.
+
+\subsection{Compiling and Running the Intepreter}
+
+\begin{lstlisting}[language=bash,caption={Compiling and Running the Intepreter}]
+cd ../src
+make
+make test
+\end{lstlisting}
+
+This will build the intepreter with the library mentioned above and interpret the statements in \verb|test.f| with 5 processes at the local machine. You can modify the number of processes in \verb|Makefile|, but the number should be at least the same as the biggest position of manually-specified ``at'' terms, or a type error will be raised by the intepreter.
+
+We will elaborate typical statements in this language below.
+
+\section{Distribution Types}
+
+The following examples demonstrate the basic usage of distribution terms and types, and the position annotation ($\at p$) is completely optional.
+
+\vspace{1em}
+\noindent
+\verb|  a = 1 @ 1|
+\\
+\verb|▸ a : Int @ 1|
+\\
+\verb|  b = 2 @ 2|
+\\
+\verb|▸ b : Int @ 2|
+\\
+\verb|  b' = 2|
+\\
+\verb|▸ b' : Int @ 7|
+\\
+\verb|  list = [4 @ 4, 5 @ 5, 6 @ 6]|
+\\
+\verb|▸ list : List Int|
+\\
+\verb|  autolist = [7, 8, 9, 10]|
+\\
+\verb|▸ autolist : List Int|
+
+\section{Built-in Polymorphic Operators}
+
+The following examples demonstrate the usage of built-in polymorphic operators, which can operate on different kind of inputs. When doing this, the operators handle the communication work implicitly.
+
+\vspace{1em}
+\noindent
+\verb|  c = a + b @ 3|
+\\
+\verb|▸ c : Int @ 3|
+\\
+\verb|  t = b > a|
+\\
+\verb|▸ t : Bool @ 2|
+
+\section{User-defined Polymorphic Functions}
+
+
+The following examples demonstrate the ability to build more complicated functions by users, based on previously mentioned polymorphic operators. They can operate on different type of data \emph{via} parametric polymorphism.
+
+\vspace{1em}
+\noindent
+\verb|  square = λX<:Int. λx:X. x * x|
+\\
+\verb|▸ square : ∀X<:Int. X -> Int|
+\\
+\verb|  min = λX<:Int. λY<:Int. λx:X. λy:Y.|
+\\
+\verb|        if (x > y) then y else x|
+\\
+\verb|▸ min : ∀X<:Int. ∀Y<:Int. X -> Y -> Int|
+
+\section{User-defined Functional}
+
+The following examples demonstrate the ability to build even high-order function, or functionals, by users based on either (\emph{ad hoc}) polymorphic operators or parametric polymorphic functions.
+
+\vspace{1em}
+\noindent
+\verb|▸ map : ∀X. ∀Y. (X -> Y) -> List X -> List Y|
+\\
+\verb|▸ reduce : ∀X. (X -> X -> X) -> List X -> X -> X|
+\\
+\verb|  squared_list = map [Int] [Int] square list|
+\\
+\verb|▸ squared_list : List Int|
+\\
+\verb|  value = reduce [Int] min autolist 0|
+\\
+\verb|▸ value : Int|
+
+\chapter{Conclusion}
+
+\section{Summary}
+
+In this report, we
+
+\begin{itemize}
+    \item Reviewed system F$_\subty$ and its properties
+    \item Designed and implemented a language based on system F$_\subty$ that can abstract distribution with type systems and eventually compiles to MPI
+    \item Proved the soundness of such a language
+    \item Provided usage instructions and concrete examples
+\end{itemize}
+
+Therefore, we successfully applied some knowledge of types and programming languages to real-world problems and made meaningful explorations for distributed computing language design.
+
+\section{Deficiencies and Possible Improvements}
+
+We are also aware of the fact that this language has some deficiencies that need further work. Some noticeable ones are:
+
+\begin{itemize}
+    \item Since all ad-hoc polymorphisms are hard-coded in the language, users cannot define their own dispatch behaviors
+    \item From the programmer's point of view, it is better that polymorphic functions can be applied without prior ``type application'' $[T]$, however this cannot be achieved in the framework of system F$_\subty$.
+\end{itemize}
+
+\chapter*{Acknowledgement}
+
+We together carried out the formal definitions; Wang implemented the lexer and parser; Zhu implemented the type checker and evaluator; Tan implemented the binding to MPI and made this report.
+
+We thank Prof. Hu, Zhao and Xiong for guidance.
+
+\bibliography{report}
+
 \end{document}

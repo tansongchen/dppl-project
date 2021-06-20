@@ -22,89 +22,75 @@ open Syntax
  */
 
 /* Keyword tokens */
-%token <Support.Error.info> IMPORT
-%token <Support.Error.info> USTRING
-%token <Support.Error.info> TTOP
-%token <Support.Error.info> TYPE
-%token <Support.Error.info> LEQ
-%token <Support.Error.info> ALL
-%token <Support.Error.info> SOME
-%token <Support.Error.info> LET
-%token <Support.Error.info> IN
-%token <Support.Error.info> AS
 %token <Support.Error.info> LAMBDA
 %token <Support.Error.info> IF
 %token <Support.Error.info> THEN
 %token <Support.Error.info> ELSE
+%token <Support.Error.info> FIX
+%token <Support.Error.info> HEAD
+%token <Support.Error.info> TAIL
+%token <Support.Error.info> ISNIL
+%token <Support.Error.info> UNIT
 %token <Support.Error.info> TRUE
 %token <Support.Error.info> FALSE
-%token <Support.Error.info> BOOL
-%token <Support.Error.info> UINT
-%token <Support.Error.info> ISZERO
-%token <Support.Error.info> UNIT
+%token <Support.Error.info> ALL
+%token <Support.Error.info> TOP
 %token <Support.Error.info> UUNIT
-%token <Support.Error.info> TIMESFLOAT
+%token <Support.Error.info> UBOOL
+%token <Support.Error.info> UINT
 %token <Support.Error.info> UFLOAT
-%token <Support.Error.info> INERT
-%token <Support.Error.info> FIX
-%token <Support.Error.info> LETREC
-%token <Support.Error.info> PLUS
-%token <Support.Error.info> GT
-%token <Support.Error.info> CONS
-%token <Support.Error.info> HEAD
-%token <Support.Error.info> TAIL 
-%token <Support.Error.info> ISNIL
 %token <Support.Error.info> ULIST
 
 /* Identifier and constant value tokens */
 %token <string Support.Error.withinfo> UCID  /* uppercase-initial */
 %token <string Support.Error.withinfo> LCID  /* lowercase/symbolic-initial */
-%token <int Support.Error.withinfo> INTV
-%token <float Support.Error.withinfo> FLOATV
-%token <string Support.Error.withinfo> STRINGV
+%token <int Support.Error.withinfo> INT
+%token <float Support.Error.withinfo> FLOAT
 
 /* Symbolic tokens */
-%token <Support.Error.info> APOSTROPHE
-%token <Support.Error.info> DQUOTE
 %token <Support.Error.info> ARROW
-%token <Support.Error.info> BANG
-%token <Support.Error.info> BARGT
-%token <Support.Error.info> BARRCURLY
-%token <Support.Error.info> BARRSQUARE
-%token <Support.Error.info> COLON
-%token <Support.Error.info> COLONCOLON
-%token <Support.Error.info> COLONEQ
-%token <Support.Error.info> COLONHASH
-%token <Support.Error.info> COMMA
-%token <Support.Error.info> DARROW
-%token <Support.Error.info> DDARROW
-%token <Support.Error.info> DOT
-%token <Support.Error.info> EOF
-%token <Support.Error.info> EQ
-%token <Support.Error.info> EQEQ
-%token <Support.Error.info> EXISTS
-%token <Support.Error.info> GT
+%token <Support.Error.info> EXCLAMATION
+%token <Support.Error.info> QUOTATION
 %token <Support.Error.info> HASH
-%token <Support.Error.info> LCURLY
-%token <Support.Error.info> LCURLYBAR
-%token <Support.Error.info> LEFTARROW
-%token <Support.Error.info> LPAREN
-%token <Support.Error.info> LSQUARE
-%token <Support.Error.info> LSQUAREBAR
-%token <Support.Error.info> LT
-%token <Support.Error.info> RCURLY
-%token <Support.Error.info> RPAREN
-%token <Support.Error.info> RSQUARE
-%token <Support.Error.info> SEMI
-%token <Support.Error.info> SLASH
-%token <Support.Error.info> STAR
-%token <Support.Error.info> TRIANGLE
-%token <Support.Error.info> USCORE
-%token <Support.Error.info> VBAR
+%token <Support.Error.info> DOLLAR
+%token <Support.Error.info> PERCENT
+%token <Support.Error.info> AMPERSAND
+%token <Support.Error.info> APOSTROPHE
+%token <Support.Error.info> LPARENTHESIS
+%token <Support.Error.info> RPARENTHESIS
+%token <Support.Error.info> ASTERISK
+%token <Support.Error.info> PLUS
+%token <Support.Error.info> COMMA
 %token <Support.Error.info> MINUS
+%token <Support.Error.info> DOT
+%token <Support.Error.info> SLASH
+
+%token <Support.Error.info> COLON
+%token <Support.Error.info> SEMICOLON
+%token <Support.Error.info> LT
+%token <Support.Error.info> EQ
+%token <Support.Error.info> GT
+%token <Support.Error.info> QUESTION
 %token <Support.Error.info> AT
+%token <Support.Error.info> LSQUARE
+%token <Support.Error.info> RSQUARE
+%token <Support.Error.info> CARET
+%token <Support.Error.info> UNDERSCORE
+%token <Support.Error.info> GRAVE
+%token <Support.Error.info> LCURLY
+%token <Support.Error.info> VERTICALBAR
+%token <Support.Error.info> RCURLY
+%token <Support.Error.info> TILDE
 
+%token <Support.Error.info> PLUSPLUS
+%token <Support.Error.info> MINUSMINUS
+%token <Support.Error.info> COLONCOLON
+%token <Support.Error.info> LTCOLON
+%token <Support.Error.info> LE
+%token <Support.Error.info> GE
+%token <Support.Error.info> ARROW
 
+%token <Support.Error.info> EOF
 
 /* ---------------------------------------------------------------------- */
 /* The starting production of the generated parser is the syntactic class
@@ -124,60 +110,73 @@ open Syntax
 
 %start toplevel
 %type < Syntax.context -> (Syntax.command list * Syntax.context) > toplevel
+%left PLUS MINUS
 %%
 
 /* ---------------------------------------------------------------------- */
 /* Main body of the parser definition */
 
 /* The top level of a file is a sequence of commands, each terminated
-   by a semicolon. */
+   by a SEMICOLONcolon. */
 toplevel :
     EOF
-      { fun ctx -> [],ctx }
-  | Command SEMI toplevel
+      { fun ctx -> [], ctx }
+  | Command SEMICOLON toplevel
       { fun ctx ->
-          let cmd,ctx = $1 ctx in
-          let cmds,ctx = $3 ctx in
-          cmd::cmds,ctx }
+          let cmd, ctx = $1 ctx in
+          let cmds, ctx = $3 ctx in
+          cmd :: cmds, ctx }
 
 /* A top-level command */
 Command :
-    IMPORT STRINGV { fun ctx -> (Import($2.v)),ctx }
-  | Term 
-      { fun ctx -> (let t = $1 ctx in Eval(tmInfo t,t)),ctx }
-  | UCID TyBinder
+    Term 
+      { fun ctx -> (let t = $1 ctx in Eval(tmInfo t, t)),ctx }
+  | UCID TypeBinder
       { fun ctx -> ((Bind($1.i, $1.v, $2 ctx)), addname ctx $1.v) }
-  | LCID Binder
-      { fun ctx -> ((Bind($1.i,$1.v,$2 ctx)), addname ctx $1.v) }
-  | LCURLY UCID COMMA LCID RCURLY EQ Term
-     { fun ctx ->
-         let ctx1 = addname ctx $2.v in
-         let ctx2 = addname ctx1 $4.v in
-         (SomeBind($1,$2.v,$4.v,$7 ctx), ctx2) }
+  | LCID ValueBinder
+      { fun ctx -> ((Bind($1.i, $1.v, $2 ctx)), addname ctx $1.v) }
+
+TypeBinder :
+    /* empty */
+      { fun ctx -> TyVarBind(TyTop) }
+  | LTCOLON Type
+      { fun ctx -> TyVarBind($2 ctx) }
+  | TILDE Type
+      { fun ctx -> TyAbbBind($2 ctx) }
 
 /* Right-hand sides of top-level bindings */
-Binder :
+ValueBinder :
     COLON Type
-      { fun ctx -> VarBind ($2 ctx)}
-  | EQ Term 
+      { fun ctx -> VarBind($2 ctx)}
+  | TILDE Term 
       { fun ctx -> TmAbbBind($2 ctx, None) }
 
 /* All type expressions */
 Type :
     ArrowType
-                { $1 }
-  | ALL UCID OType DOT Type
+      { $1 }
+  | ALL UCID DOT Type
       { fun ctx ->
           let ctx1 = addname ctx $2.v in
-          TyAll($2.v,$3 ctx,$5 ctx1) }
+          TyAll($2.v, TyTop, $4 ctx1) }
+  | ALL UCID LTCOLON Type DOT Type
+      { fun ctx ->
+          let ctx1 = addname ctx $2.v in
+          TyAll($2.v, $4 ctx, $6 ctx1) }
+
+/* An "arrow type" is a sequence of atomic types separated by
+   arrows. */
+ArrowType :
+    AtomicType ARROW ArrowType
+     { fun ctx -> TyArr($1 ctx, $3 ctx) }
+  | AtomicType
+     { $1 }
 
 /* Atomic types are those that never need extra parentheses */
-AType :
-    LPAREN Type RPAREN  
-           { $2 } 
-  | USTRING
-      { fun ctx -> TyString }
-  | TTOP
+AtomicType :
+    LPARENTHESIS Type RPARENTHESIS
+           { $2 }
+  | TOP
       { fun ctx -> TyTop }
   | UCID 
       { fun ctx ->
@@ -185,107 +184,60 @@ AType :
             TyVar(name2index $1.i ctx $1.v, ctxlength ctx)
           else 
             TyId($1.v) }
-  | LCURLY SOME UCID OType COMMA Type RCURLY
-      { fun ctx ->
-          let ctx1 = addname ctx $3.v in
-          TySome($3.v, $4 ctx, $6 ctx1) }
-  | LCURLY FieldTypes RCURLY
-      { fun ctx ->
-          TyRecord($2 ctx 1) }
-  | BOOL
-      { fun ctx -> TyBool }
-  | UINT
-      { fun ctx -> TyAt(TyInt,0) }
   | UUNIT
       { fun ctx -> TyUnit }
+  | UBOOL
+      { fun ctx -> TyBool }
+  | UINT
+      { fun ctx -> TyInt }
   | UFLOAT
-      { fun ctx -> TyAt(TyFloat,0) }
-  | ULIST AType
+      { fun ctx -> TyFloat }
+  | ULIST AtomicType
       { fun ctx -> TyList($2 ctx) }
-
-AscribeTerm :
-    ATerm AS Type
-      { fun ctx -> TmAscribe($2, $1 ctx, $3 ctx) }
-  | ATerm
-      { $1 }
-
-TyBinder :
-    /* empty */
-      { fun ctx -> TyVarBind(TyTop) }
-  | LEQ Type
-      { fun ctx -> TyVarBind($2 ctx) }
-  | EQ Type
-      { fun ctx -> TyAbbBind($2 ctx) }
-
-OType :
-   /* empty */
-      { fun ctx -> TyTop}
- | LEQ Type 
-      { $2 }
-
-/* An "arrow type" is a sequence of atomic types separated by
-   arrows. */
-ArrowType :
-    AType ARROW ArrowType
-     { fun ctx -> TyArr($1 ctx, $3 ctx) }
-  | AType
-            { $1 }
 
 Term :
     AppTerm
       { $1 }
-  | LAMBDA UCID OType DOT Term
+  | LAMBDA UCID DOT Term
       { fun ctx ->
           let ctx1 = addname ctx $2.v in
-          TmTAbs($1,$2.v,$3 ctx,$5 ctx1) }
-  | LET LCURLY UCID COMMA LCID RCURLY EQ Term IN Term
+          TmTAbs($1, $2.v, TyTop, $4 ctx1) }
+  | LAMBDA UCID LTCOLON Type DOT Term
       { fun ctx ->
-          let ctx1 = addname ctx $3.v in
-          let ctx2 = addname ctx1 $5.v in
-          TmUnpack($1,$3.v,$5.v,$8 ctx,$10 ctx2) }
+          let ctx1 = addname ctx $2.v in
+          TmTAbs($1, $2.v, $4 ctx, $6 ctx1) }
   | LAMBDA LCID COLON Type DOT Term 
       { fun ctx ->
           let ctx1 = addname ctx $2.v in
           TmAbs($1, $2.v, $4 ctx, $6 ctx1) }
-  | LAMBDA USCORE COLON Type DOT Term 
+  | LAMBDA UNDERSCORE COLON Type DOT Term 
       { fun ctx ->
           let ctx1 = addname ctx "_" in
           TmAbs($1, "_", $4 ctx, $6 ctx1) }
   | IF Term THEN Term ELSE Term
       { fun ctx -> TmIf($1, $2 ctx, $4 ctx, $6 ctx) }
-  | LET LCID EQ Term IN Term
-      { fun ctx -> TmLet($1, $2.v, $4 ctx, $6 (addname ctx $2.v)) }
-  | LET USCORE EQ Term IN Term
-      { fun ctx -> TmLet($1, "_", $4 ctx, $6 (addname ctx "_")) }
-  | LETREC LCID COLON Type EQ Term IN Term
-      { fun ctx -> 
-          let ctx1 = addname ctx $2.v in 
-          TmLet($1, $2.v, TmFix($1, TmAbs($1, $2.v, $4 ctx, $6 ctx1)),
-                $8 ctx1) }
 
-Operator :
-    PLUS    { fun ctx -> Plus($1) }
-  | MINUS   { fun ctx -> Minus($1) }
-  | STAR    { fun ctx -> Times($1) }
-  | SLASH   { fun ctx -> Divide($1) }
-  | GT      { fun ctx -> GT($1) }
-  | EQ      { fun ctx -> EQ($1) }
-  | LT      { fun ctx -> LT($1) }
+UnaryOperator :
+    PLUS { fun ctx -> Positive($1) }
+  | MINUS { fun ctx -> Negative($1) }
+  | PLUSPLUS { fun ctx -> Succ($1) }
+  | MINUSMINUS { fun ctx -> Pred($1) }
 
-/* ATYPE : Int Float */
-ListTerm :
-    LSQUARE RSQUARE AS ULIST AType
-      { fun ctx -> TmNil($1, $5 ctx) }
-  | CONS AppTerm PathTerm
-      { fun ctx -> TmCons($1, $2 ctx, $3 ctx)}
-  | LSQUARE AppTerm NumList RSQUARE
-      { fun ctx -> TmCons($1, $2 ctx, $3 ctx)}
+BinaryOperator :
+    PLUS     { fun ctx -> Plus($1) }
+  | MINUS    { fun ctx -> Minus($1) }
+  | ASTERISK { fun ctx -> Times($1) }
+  | SLASH    { fun ctx -> Over($1) }
+  | EQ       { fun ctx -> EQ($1) }
+  | GT       { fun ctx -> GT($1) }
+  | LT       { fun ctx -> LT($1) }
 
-NumList :
-    /* empty */
-      { fun ctx -> TmNil(dummyinfo, TyTop) }
-  | COMMA AppTerm NumList
-      { fun ctx -> TmCons($1, $2 ctx, $3 ctx)}
+TermSeq :
+    Term 
+      { $1 }
+  | Term SEMICOLON TermSeq 
+      { fun ctx ->
+          TmApp($2, TmAbs($2, "_", TyUnit, $3 (addname ctx "_")), $1 ctx) }
 
 AppTerm :
     AppTerm LSQUARE Type RSQUARE
@@ -293,127 +245,59 @@ AppTerm :
           let t1 = $1 ctx in
           let t2 = $3 ctx in
           TmTApp(tmInfo t1,t1,t2) }
-  | AppTerm PathTerm
+  | AppTerm AtomicTerm
       { fun ctx ->
           let e1 = $1 ctx in
           let e2 = $2 ctx in
           TmApp(tmInfo e1,e1,e2) }
-  | ISZERO PathTerm
-      { fun ctx -> TmIsZero($1, $2 ctx) }
-  | TIMESFLOAT PathTerm PathTerm
-      { fun ctx -> TmTimesfloat($1, $2 ctx, $3 ctx) }
-  | PLUS PathTerm PathTerm
-      { fun ctx -> TmPlus($1, $2 ctx, $3 ctx) }
-  | GT PathTerm PathTerm
-      { fun ctx -> TmGt($1, $2 ctx, $3 ctx) }
-  | FIX PathTerm
-      { fun ctx ->
-          TmFix($1, $2 ctx) }
-  | HEAD PathTerm
-      { fun ctx -> TmHead($1, $2 ctx) }
-  | TAIL PathTerm
-      { fun ctx -> TmTail($1, $2 ctx) }
-  | ISNIL PathTerm
-      { fun ctx -> TmIsnil($1, $2 ctx) }
-  | PathTerm
-      { $1 }
-
-PathTerm :
-    PathTerm DOT LCID
-      { fun ctx ->
-          TmProj($2, $1 ctx, $3.v) }
-  | PathTerm DOT INTV
-      { fun ctx ->
-          TmProj($2, $1 ctx, string_of_int $3.v) }
-  | PathTerm AT INTV
-      { fun ctx ->
-          let t1 = $1 ctx in ( match t1 with
-              TmAt(_,t3,_) -> TmAt($2,t3,$3.v)
-            | _ -> TmAt($2, t1, $3.v)
-          ) }
-  | PathTerm Operator PathTerm
+  | UnaryOperator AtomicTerm
+      { fun ctx -> 
+            let t2 = $2 ctx in
+            TmUnary(tmInfo t2, $1 ctx, $2 ctx) }
+  | AppTerm BinaryOperator AtomicTerm
       { fun ctx -> 
             let t1 = $1 ctx in
             TmBinary(tmInfo t1, $2 ctx, t1, $3 ctx) }
-  | AscribeTerm
-      { $1 }
-  | ListTerm
-      { $1 }
-
-FieldTypes :
-    /* empty */
-      { fun ctx i -> [] }
-  | NEFieldTypes
-      { $1 }
-
-NEFieldTypes :
-    FieldType
-      { fun ctx i -> [$1 ctx i] }
-  | FieldType COMMA NEFieldTypes
-      { fun ctx i -> ($1 ctx i) :: ($3 ctx (i+1)) }
-
-FieldType :
-    LCID COLON Type
-      { fun ctx i -> ($1.v, $3 ctx) }
-  | Type
-      { fun ctx i -> (string_of_int i, $1 ctx) }
-
-TermSeq :
-    Term 
-      { $1 }
-  | Term SEMI TermSeq 
+  | AppTerm COLONCOLON AtomicTerm
+      { fun ctx -> TmCons($2, $1 ctx, $3 ctx) }
+  | FIX AtomicTerm
       { fun ctx ->
-          TmApp($2, TmAbs($2, "_", TyUnit, $3 (addname ctx "_")), $1 ctx) }
+          TmFix($1, $2 ctx) }
+  | HEAD AtomicTerm
+      { fun ctx -> TmHead($1, $2 ctx) }
+  | TAIL AtomicTerm
+      { fun ctx -> TmTail($1, $2 ctx) }
+  | ISNIL AtomicTerm
+      { fun ctx -> TmIsnil($1, $2 ctx) }
+  | AtomicTerm
+      { $1 }
 
 /* Atomic terms are ones that never require extra parentheses */
-ATerm :
-    LPAREN TermSeq RPAREN  
+AtomicTerm :
+    LPARENTHESIS TermSeq RPARENTHESIS
       { $2 } 
-  | STRINGV
-      { fun ctx -> TmString($1.i, $1.v) }
-  | LCURLY STAR Type COMMA Term RCURLY AS Type
-      { fun ctx ->
-          TmPack($1,$3 ctx,$5 ctx,$8 ctx) }
   | LCID 
       { fun ctx ->
           TmVar($1.i, name2index $1.i ctx $1.v, ctxlength ctx) }
-  | LCURLY Fields RCURLY
-      { fun ctx ->
-          TmRecord($1, $2 ctx 1) }
-  | TRUE
-      { fun ctx -> TmTrue($1) }
-  | FALSE
-      { fun ctx -> TmFalse($1) }
-  | Number
-      { fun ctx -> ($1 ctx) }
   | UNIT
       { fun ctx -> TmUnit($1) }
-  | INERT LSQUARE Type RSQUARE 
-      { fun ctx -> TmInert($1, $3 ctx) }
+  | TRUE
+      { fun ctx -> TmBool($1, true) }
+  | FALSE
+      { fun ctx -> TmBool($1, false) }
+  | INT
+      { fun ctx -> TmInt($1.i, $1.v) }
+  | FLOAT
+      { fun ctx -> TmFloat($1.i, $1.v) }
+  | AtomicTerm AT INT
+      { fun ctx -> TmAt($2, $1 ctx, $3.v) }
+  | AtomicType LSQUARE RSQUARE
+      { fun ctx -> TmNil(dummyinfo, $1 ctx) }
+  | LSQUARE AppTerm ListContent RSQUARE
+      { fun ctx -> TmCons($1, $2 ctx, $3 ctx) }
 
-Number :
-    INTV
-      { fun ctx -> TmAt($1.i,TmInt($1.i, $1.v),0) }
-  | FLOATV
-      { fun ctx -> TmAt($1.i,TmFloat($1.i, $1.v),0) }
-
-Fields :
+ListContent :
     /* empty */
-      { fun ctx i -> [] }
-  | NEFields
-      { $1 }
-
-NEFields :
-    Field
-      { fun ctx i -> [$1 ctx i] }
-  | Field COMMA NEFields
-      { fun ctx i -> ($1 ctx i) :: ($3 ctx (i+1)) }
-
-Field :
-    LCID EQ Term
-      { fun ctx i -> ($1.v, $3 ctx) }
-  | Term
-      { fun ctx i -> (string_of_int i, $1 ctx) }
-
-
-/*   */
+      { fun ctx -> TmNil(dummyinfo, TyTop) }
+  | COMMA AppTerm ListContent
+      { fun ctx -> TmCons($1, $2 ctx, $3 ctx) }
